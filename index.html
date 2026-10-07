@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f6ef">
-  <meta name="description" content="Draw a little hero, bring them to life, and explore a tiny island world.">
+  <meta name="description" content="Draw a little hero, explore five cozy biomes, collect glowing idols, and befriend their guardians.">
   <title>Little Worlds — draw, play, explore</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,12 +14,13 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <a class="brand" href="#play" aria-label="Little Worlds home">
+      <a class="brand" href="#home" aria-label="Little Worlds home">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
         <span class="brand-name">little<span>worlds</span></span>
       </a>
       <nav class="main-nav" aria-label="Main navigation">
-        <button class="nav-button active" data-view="play" type="button"><span class="nav-icon">✦</span> Play</button>
+        <button class="nav-button active" data-view="home" type="button"><span class="nav-icon">⌂</span> Home</button>
+        <button class="nav-button" data-view="play" type="button"><span class="nav-icon">✦</span> Play</button>
         <button class="nav-button" data-view="studio" type="button"><span class="nav-icon">▦</span> Sprite studio</button>
       </nav>
       <div class="topbar-right">
@@ -29,7 +30,51 @@
     </header>
 
     <main>
-      <section id="playView" class="view active" aria-labelledby="playTitle">
+      <section id="homeView" class="view landing-view active" aria-labelledby="homeTitle">
+        <div class="landing-hero">
+          <div class="landing-copy">
+            <div class="eyebrow"><span class="eyebrow-dot"></span> A TINY ADVENTURE MADE BY YOU</div>
+            <h1 id="homeTitle">Draw a hero.<br><em>Wake the island.</em></h1>
+            <p>Bring your own little character to life, explore five cozy biomes, and help their guardians become friends.</p>
+            <div class="landing-actions">
+              <button class="landing-primary" data-view="play" type="button">Start exploring <span>→</span></button>
+              <button class="landing-secondary" data-view="studio" type="button">Make a character <span>↗</span></button>
+            </div>
+            <div class="landing-how"><span>✦</span><p>Find a glowing idol in each biome. Collect one to wake its unique boss and minions, then dash to befriend them.</p></div>
+            <div class="landing-progress"><span id="homeIdolProgress">0 of 5 guardians befriended</span><i><b id="homeIdolBar"></b></i></div>
+          </div>
+          <div class="landing-art" role="img" aria-label="A tiny explorer visits a sunny island with five glowing idols">
+            <div class="landing-sun"></div>
+            <div class="landing-island">
+              <span class="landing-watermark">little isle</span>
+              <span class="landing-biome-scene scene-forest">🌲</span>
+              <span class="landing-biome-scene scene-snow">❄️</span>
+              <span class="landing-biome-scene scene-desert">🌵</span>
+              <span class="landing-biome-scene scene-water">💧</span>
+              <span class="landing-path"></span>
+              <span class="landing-idol idol-meadow">🌼</span>
+              <span class="landing-idol idol-forest">🌱</span>
+              <span class="landing-idol idol-snow">❄️</span>
+              <span class="landing-idol idol-desert">☀️</span>
+              <span class="landing-idol idol-water">💎</span>
+              <span class="landing-explorer">✿</span>
+            </div>
+            <div class="landing-art-note"><span>✦</span><strong>Five idols. Five new friends.</strong><small>Wander at your own pace.</small></div>
+          </div>
+        </div>
+        <section class="biome-showcase" aria-labelledby="biomeShowcaseTitle">
+          <div class="showcase-heading"><div><div class="eyebrow">A LITTLE WORLD TO WANDER</div><h2 id="biomeShowcaseTitle">Every place has a secret.</h2></div><button class="showcase-play" data-view="play" type="button">Visit the island <span>→</span></button></div>
+          <div class="biome-card-grid">
+            <article class="biome-card meadow-card"><div class="biome-card-art"><span>🌼</span><i>✦</i></div><div class="biome-card-copy"><small>MEADOW IDOL</small><h3>Sunny Meadow</h3><p>Wake Petalcoil, a giant flower snake, and its bloom sprites.</p></div></article>
+            <article class="biome-card forest-card"><div class="biome-card-art"><span>🌱</span><i>✦</i></div><div class="biome-card-copy"><small>FOREST IDOL</small><h3>Pinecone Forest</h3><p>Meet Bramblewing, the leafy dragon, and its acorn bugs.</p></div></article>
+            <article class="biome-card snow-card"><div class="biome-card-art"><span>❄️</span><i>✦</i></div><div class="biome-card-copy"><small>SNOW IDOL</small><h3>Snowy Nook</h3><p>Find Frostwing, the gentle glacier dragon, and snow sprites.</p></div></article>
+            <article class="biome-card desert-card"><div class="biome-card-art"><span>☀️</span><i>✦</i></div><div class="biome-card-copy"><small>DESERT IDOL</small><h3>Sunbeam Desert</h3><p>Wake Suncurl, a giant sand serpent, and its sand skitters.</p></div></article>
+            <article class="biome-card water-card"><div class="biome-card-art"><span>💎</span><i>✦</i></div><div class="biome-card-copy"><small>WATER IDOL</small><h3>Splashy Blue</h3><p>Meet Coralback, a tidepool kraken, and its bubble sprites.</p></div></article>
+          </div>
+        </section>
+      </section>
+
+      <section id="playView" class="view" aria-labelledby="playTitle" hidden>
         <div class="page-heading">
           <div>
             <div class="eyebrow"><span class="eyebrow-dot"></span> YOUR VERY OWN ADVENTURE</div>
@@ -61,6 +106,15 @@
                 <span class="discovery-item" data-biome="desert"><i>☀</i> Desert</span>
                 <span class="discovery-item" data-biome="water"><i>≈</i> Water</span>
               </div>
+              <div class="idol-quest-divider"></div>
+              <div class="idol-quest-heading"><span>Guardian friends</span><strong id="idolProgressCount">0 <small>/ 5</small></strong></div>
+              <div class="idol-quest-list" id="idolQuestList">
+                <div class="idol-quest-item" data-idol-progress="meadow"><span>🌼</span><strong>Meadow</strong><small>Idol hidden</small></div>
+                <div class="idol-quest-item" data-idol-progress="forest"><span>🌱</span><strong>Forest</strong><small>Idol hidden</small></div>
+                <div class="idol-quest-item" data-idol-progress="snow"><span>❄️</span><strong>Snow</strong><small>Idol hidden</small></div>
+                <div class="idol-quest-item" data-idol-progress="desert"><span>☀️</span><strong>Desert</strong><small>Idol hidden</small></div>
+                <div class="idol-quest-item" data-idol-progress="water"><span>💎</span><strong>Water</strong><small>Idol hidden</small></div>
+              </div>
             </section>
 
             <section class="card how-card">
@@ -84,6 +138,11 @@
                 <canvas id="gameCanvas" aria-label="Top down island world game"></canvas>
                 <div class="game-hint" id="gameHint"><span class="hint-key">W</span><span class="hint-key">A</span><span class="hint-key">S</span><span class="hint-key">D</span><span class="hint-copy">to wander · Space / Shift to dash</span><span class="hint-divider"></span><span class="hint-touch">or use the arrow pad</span></div>
                 <div class="game-toast" id="gameToast" aria-live="polite"></div>
+                <div class="boss-status" id="bossStatus" hidden aria-live="polite">
+                  <div class="boss-status-heading"><span id="bossEmoji">✦</span><div><small id="bossBiome">A GUARDIAN WAKES</small><strong id="bossName">Petalcoil</strong></div></div>
+                  <div class="boss-health-track"><span id="bossHealthBar"></span></div>
+                  <small class="boss-health-label" id="bossHealthLabel">4 hearts</small>
+                </div>
                 <div class="touch-pad" aria-label="Movement controls">
                   <button class="pad-key pad-up" data-key="ArrowUp" type="button" aria-label="Move up">↑</button>
                   <button class="pad-key pad-left" data-key="ArrowLeft" type="button" aria-label="Move left">←</button>
@@ -91,18 +150,17 @@
                   <button class="pad-key pad-right" data-key="ArrowRight" type="button" aria-label="Move right">→</button>
                 </div>
                 <div class="combat-controls" aria-label="Action controls">
-                  <span class="enemy-count" id="enemyCount" aria-live="polite">0 nearby</span>
-                  <button class="enemy-spawn-button" id="summonEnemiesButton" type="button">✦ Summon enemies</button>
+                  <span class="enemy-count" id="enemyCount" aria-live="polite">Find a glowing idol</span>
                   <button class="dash-button" id="dashButton" type="button" aria-label="Dash attack">⚡ Dash</button>
                 </div>
-                <div class="map-stamp"><span>✦</span> THE ISLAND IS YOURS</div>
+                <div class="map-stamp"><span>✦</span> FIND A GLOWING IDOL</div>
               </div>
               <div class="game-bottomline">
                 <div class="movement-copy"><span class="keyboard-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or arrows to move <span class="movement-sep">·</span> Space / Shift to dash</div>
                 <button class="restart-button" id="restartButton" type="button"><span>↻</span> Back to the meadow</button>
               </div>
             </div>
-            <div class="under-game"><span class="under-game-sparkle">✦</span><span>There are little surprises tucked all over the island.</span><span class="under-game-right">No wrong turns <span>☺</span></span></div>
+            <div class="under-game"><span class="under-game-sparkle">✦</span><span>Collect an idol to wake a biome guardian and its minions.</span><span class="under-game-right">Dash to befriend them <span>☺</span></span></div>
           </section>
         </div>
       </section>
