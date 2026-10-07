@@ -31,7 +31,7 @@
   const cropStage = $('#cropStage');
   const cropOverlay = $('#cropOverlay');
   const gameViewport = $('#gameViewport');
-  const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, slideTimer: 0, slideDX: 0, slideDY: 1, ridingSlide: false, slideProgress: 0, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
+  const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, partyDancing: false, slideTimer: 0, slideDX: 0, slideDY: 1, ridingSlide: false, slideProgress: 0, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
   const pressed = new Set();
   const enemies = [];
   const found = new Set(['meadow']);
@@ -68,6 +68,8 @@
   let audioContext = null;
   let waveTimer = 0;
   let randomSoundTimer = 0;
+  let partyNoteTimer = 0;
+  let partyNoteIndex = 0;
 
   function safeLoad() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
@@ -730,6 +732,11 @@
     points: [[53, 34], [53, 35], [54, 36], [55, 37], [55, 38], [54, 39], [53, 40], [52, 41], [51, 42]]
       .map(([tx, ty]) => ({ x: tx * world.size, y: ty * world.size }))
   };
+  const danceParty = { left: 60, right: 64, top: 40, bottom: 43 };
+  const partyColors = ['#f37ca2', '#ffd36a', '#76d8c5', '#9b8bf3', '#a6dc72'];
+  function isDancePartyTile(tx, ty) {
+    return tx >= danceParty.left && tx <= danceParty.right && ty >= danceParty.top && ty <= danceParty.bottom;
+  }
   function biomeAt(tx, ty) {
     const dx = (tx - 56) / 51, dy = (ty - 40) / 35;
     const edge = Math.sqrt(dx * dx + dy * dy);
@@ -749,6 +756,7 @@
     if (Math.abs(tx - 56) < 2 && Math.abs(ty - 40) < 2) return null;
     if (idolData.some(idol => Math.abs(tx - idol.tx) <= 1 && Math.abs(ty - idol.ty) <= 1)) return null;
     if (waterSlide.points.some(point => Math.abs(tx - Math.floor(point.x / world.size)) <= 1 && Math.abs(ty - Math.floor(point.y / world.size)) <= 1)) return null;
+    if (tx >= danceParty.left - 1 && tx <= danceParty.right + 1 && ty >= danceParty.top - 1 && ty <= danceParty.bottom + 1) return null;
     const value = hash(tx, ty, 4);
     if (biome === 'forest' && value < .15) return { type: 'tree', biome };
     if (biome === 'snow' && value < .1) return { type: 'pine', biome };
@@ -883,11 +891,50 @@
     ctx.restore();
   }
 
+  function drawDanceParty(ctx, time) {
+    const x = danceParty.left * world.size - cameraX;
+    const y = danceParty.top * world.size - cameraY;
+    const width = (danceParty.right - danceParty.left + 1) * world.size;
+    const height = (danceParty.bottom - danceParty.top + 1) * world.size;
+    ctx.save();
+    ctx.fillStyle = 'rgba(56,59,76,.25)'; ctx.fillRect(x - 5, y - 5, width + 10, height + 10);
+    ctx.fillStyle = '#725984'; ctx.fillRect(x - 4, y - 4, width + 8, height + 8);
+    ctx.fillStyle = '#f8e9bf'; ctx.fillRect(x, y, width, height);
+    for (let row = danceParty.top; row <= danceParty.bottom; row++) for (let col = danceParty.left; col <= danceParty.right; col++) {
+      const phase = Math.floor(time / 190);
+      const color = partyColors[(col + row + phase) % partyColors.length];
+      const pulse = .72 + (Math.sin(time * .006 + col * 1.7 + row) + 1) * .14;
+      ctx.globalAlpha = pulse; ctx.fillStyle = color;
+      ctx.fillRect(col * world.size - cameraX + 3, row * world.size - cameraY + 3, world.size - 6, world.size - 6);
+      ctx.globalAlpha = .35; ctx.fillStyle = '#fff9eb';
+      ctx.fillRect(col * world.size - cameraX + 6, row * world.size - cameraY + 6, 5, 3);
+    }
+    ctx.globalAlpha = 1;
+    const centerX = x + width / 2, centerY = y + height / 2;
+    for (let i = 0; i < 4; i++) {
+      const angle = time * .0015 + i * Math.PI / 2;
+      const px = centerX + Math.cos(angle) * (width * .48);
+      const py = centerY + Math.sin(angle) * (height * .62);
+      ctx.fillStyle = partyColors[i]; ctx.beginPath(); ctx.arc(px, py, 3 + (i % 2), 0, Math.PI * 2); ctx.fill();
+    }
+    // Tiny speakers and a sign make the dance floor easy to spot from the meadow.
+    for (const speakerX of [x - 13, x + width + 5]) {
+      ctx.fillStyle = '#4d465e'; ctx.fillRect(speakerX, y + height / 2 - 14, 9, 28);
+      ctx.fillStyle = '#d5b8ed'; ctx.beginPath(); ctx.arc(speakerX + 4.5, y + height / 2 - 6, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(speakerX + 4.5, y + height / 2 + 7, 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = '#fff9e9'; ctx.fillRect(centerX - 47, y - 23, 94, 16);
+    ctx.fillStyle = '#684d77'; ctx.font = 'bold 9px "DM Sans",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('♪ DANCE PARTY ♫', centerX, y - 15);
+    ctx.restore();
+  }
+
   function drawHero(ctx, time) {
     const sx = player.x - cameraX + world.size / 2;
     const sy = player.y - cameraY + world.size / 2;
     if (sx < -60 || sy < -60 || sx > gameWidth + 60 || sy > gameHeight + 60) return;
-    const bob = player.moving ? Math.sin(time * .018) * 1.8 : Math.sin(time * .0025) * .7;
+    const dancing = player.partyDancing;
+    const bob = dancing ? Math.sin(time * .018) * 2.5 + Math.abs(Math.sin(time * .012)) * 2 : player.moving ? Math.sin(time * .018) * 1.8 : Math.sin(time * .0025) * .7;
     ctx.fillStyle = 'rgba(46,72,49,.21)'; ctx.beginPath(); ctx.ellipse(sx, sy + 11, 11, 4.5, 0, 0, Math.PI * 2); ctx.fill();
     if (player.inWater) {
       ctx.strokeStyle = 'rgba(247,255,231,.72)'; ctx.lineWidth = 1.4;
@@ -902,8 +949,9 @@
         }
       }
     }
-    const pose = player.moving ? 1 + Math.floor(frameTime / 130) % 3 : 0;
-    const row = directions[player.face] ?? 2;
+    const pose = dancing ? 1 + Math.floor(time / 130) % 3 : player.moving ? 1 + Math.floor(frameTime / 130) % 3 : 0;
+    const danceDirection = ['down', 'left', 'up', 'right'][Math.floor(time / 360) % 4];
+    const row = directions[dancing ? danceDirection : player.face] ?? 2;
     const frame = spriteFrames?.[row * 4 + pose];
     ctx.imageSmoothingEnabled = false;
     if (player.dashTimer > 0) {
@@ -929,6 +977,15 @@
     }
     if (player.inWater && hash(Math.floor(player.x / 32), Math.floor(player.y / 32), 44) > .58) {
       ctx.fillStyle = 'rgba(255,255,224,.72)'; ctx.fillRect(sx + 12, sy - 6, 2, 2);
+    }
+    if (dancing) {
+      ctx.save(); ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (let i = 0; i < 4; i++) {
+        const angle = time * .004 + i * Math.PI / 2;
+        ctx.fillStyle = partyColors[i];
+        ctx.fillText(i % 2 ? '♪' : '✦', sx + Math.cos(angle) * 22, sy - 7 + Math.sin(angle) * 15);
+      }
+      ctx.restore();
     }
   }
 
@@ -1021,6 +1078,7 @@
       drawObstacle(gameCtx, x, y, sx, sy, time);
     }
     drawWaterSlide(gameCtx, time);
+    drawDanceParty(gameCtx, time);
     for (const idol of idolData) drawIdol(gameCtx, idol, time);
     for (const enemy of enemies) drawEnemy(gameCtx, enemy, time);
     drawHero(gameCtx, time);
@@ -1204,6 +1262,16 @@
     else if (bossHits) showToast(`Dash! ${idolData.find(item => item.biome === activeBossId)?.boss} has ${enemies.find(enemy => enemy.role === 'boss')?.health ?? 0} hearts left.`);
     else showToast(bopped === 1 ? 'Boop! One minion ran off.' : `Boop! ${bopped} minions ran off.`);
   }
+  function updatePartyDance() {
+    const tx = Math.floor(player.x / world.size), ty = Math.floor(player.y / world.size);
+    const dancing = isDancePartyTile(tx, ty) && !player.inWater && !player.ridingSlide && player.dashTimer <= 0;
+    if (dancing === player.partyDancing) return;
+    player.partyDancing = dancing;
+    if (dancing) {
+      partyNoteTimer = 0;
+      showToast('Dance party! Groove to the beat!');
+    }
+  }
   function waterSlidePointAt(distance) {
     let remaining = distance;
     for (let i = 0; i < waterSlide.points.length - 1; i++) {
@@ -1251,6 +1319,7 @@
   function movePlayer(dt) {
     player.dashCooldown = Math.max(0, player.dashCooldown - dt);
     if (player.ridingSlide) { rideWaterSlide(dt); return; }
+    updatePartyDance();
     const dashing = player.dashTimer > 0;
     let dx = 0, dy = 0;
     if (pressed.has('ArrowLeft') || pressed.has('KeyA')) dx -= 1;
@@ -1271,6 +1340,7 @@
     const nextX = player.x + tx * amount, nextY = player.y + ty * amount;
     if (!collides(nextX, player.y)) player.x = clamp(nextX, 15, world.width * world.size - 15);
     if (!collides(player.x, nextY)) player.y = clamp(nextY, 15, world.height * world.size - 15);
+    updatePartyDance();
     frameTime += dt * 1000;
     if (!played) {
       played = true; $('#gameHint').classList.add('gone');
@@ -1327,6 +1397,7 @@
       movePlayer(dt);
       updateEnemies(dt);
       renderWorld(time);
+      updatePartyMusic(time);
       if (soundOn) maybePlayAmbient(time);
     }
     requestAnimationFrame(loop);
@@ -1396,6 +1467,12 @@
     const inForest = biomeAt(Math.floor(player.x / 32), Math.floor(player.y / 32)) === 'forest';
     playNote(inForest ? 760 : 570, .32, .022);
     if (inForest) window.setTimeout(() => playNote(920, .22, .015), 130);
+  }
+  function updatePartyMusic(time) {
+    if (!player.partyDancing || !soundOn || time < partyNoteTimer) return;
+    const melody = [523, 659, 784, 659, 587, 698, 880, 698];
+    playNote(melody[partyNoteIndex++ % melody.length], .18, .027);
+    partyNoteTimer = time + 240;
   }
   $('#soundToggle').addEventListener('click', () => {
     soundOn = !soundOn;
