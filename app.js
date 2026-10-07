@@ -31,7 +31,7 @@
   const cropStage = $('#cropStage');
   const cropOverlay = $('#cropOverlay');
   const gameViewport = $('#gameViewport');
-  const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, partyDancing: false, slideTimer: 0, slideDX: 0, slideDY: 1, ridingSlide: false, slideProgress: 0, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
+  const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, partyDancing: false, slideTimer: 0, slideDX: 0, slideDY: 1, ridingSlide: false, slideProgress: 0, dolphinRideTimer: 0, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
   const pressed = new Set();
   const enemies = [];
   const found = new Set(['meadow']);
@@ -732,9 +732,11 @@
     points: [[53, 34], [53, 35], [54, 36], [55, 37], [55, 38], [54, 39], [53, 40], [52, 41], [51, 42]]
       .map(([tx, ty]) => ({ x: tx * world.size, y: ty * world.size }))
   };
-  const danceParty = { left: 60, right: 64, top: 40, bottom: 43 };
+  const danceParty = { left: 79, right: 83, top: 39, bottom: 42 };
   const partyColors = ['#f37ca2', '#ffd36a', '#76d8c5', '#9b8bf3', '#a6dc72'];
-  const soccerField = { left: 59, right: 67, top: 34, bottom: 38, goalHalf: 25 };
+  const soccerField = { left: 27, right: 35, top: 38, bottom: 42, goalHalf: 38 };
+  const dolphin = { x: 104 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
+  const dolphinRideDuration = 10;
   const soccerBall = {
     x: (soccerField.left + soccerField.right + 1) * world.size / 2,
     y: (soccerField.top + soccerField.bottom + 1) * world.size / 2,
@@ -760,6 +762,10 @@
   function isSoccerBallInReach() {
     const x = player.x + world.size / 2, y = player.y + world.size / 2;
     return Math.hypot(soccerBall.x - x, soccerBall.y - y) <= 48;
+  }
+  function isDolphinInReach() {
+    const x = player.x + world.size / 2, y = player.y + world.size / 2;
+    return Math.hypot(dolphin.x - x, dolphin.y - y) <= 72;
   }
   function biomeAt(tx, ty) {
     const dx = (tx - 56) / 51, dy = (ty - 40) / 35;
@@ -998,13 +1004,41 @@
     }
     ctx.fillStyle = '#fff9e9'; ctx.fillRect(centerX - 66, top - 23, 132, 16);
     ctx.fillStyle = '#396349'; ctx.font = 'bold 8px "DM Sans",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('MEADOW SOCCER · F TO KICK', centerX, top - 15);
+    ctx.fillText('FOREST SOCCER · F TO KICK', centerX, top - 15);
     const light = .72 + (Math.sin(time * .004) + 1) * .12;
     ctx.globalAlpha = light; ctx.fillStyle = '#fff1a4';
     ctx.beginPath(); ctx.arc(centerX, centerY, 2, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
     drawSoccerBall(ctx, time);
     ctx.restore();
+  }
+
+  function drawDolphin(ctx, time) {
+    const riding = player.dolphinRideTimer > 0;
+    const worldX = riding ? player.x + world.size / 2 : dolphin.x;
+    const worldY = riding ? player.y + world.size / 2 : dolphin.y;
+    const sx = worldX - cameraX, sy = worldY - cameraY;
+    if (sx < -50 || sy < -50 || sx > gameWidth + 50 || sy > gameHeight + 50) return;
+    const direction = riding ? ({ right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 }[player.face] ?? 0) : Math.PI;
+    const bob = Math.sin(time * .008) * 1.5;
+    ctx.save();
+    if (!riding) {
+      ctx.fillStyle = 'rgba(39,72,76,.18)'; ctx.beginPath(); ctx.ellipse(sx, sy + 12, 20, 6, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.translate(sx, sy + bob); ctx.rotate(direction);
+    ctx.fillStyle = '#438c9a'; ctx.beginPath(); ctx.moveTo(-18, 0); ctx.lineTo(-31, -9); ctx.lineTo(-27, 0); ctx.lineTo(-31, 9); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#62bdca'; ctx.beginPath(); ctx.moveTo(-22, 0); ctx.quadraticCurveTo(-15, -10, 4, -9); ctx.quadraticCurveTo(18, -8, 26, 0); ctx.quadraticCurveTo(18, 8, 3, 9); ctx.quadraticCurveTo(-15, 8, -22, 0); ctx.fill();
+    ctx.fillStyle = '#d9f1e8'; ctx.beginPath(); ctx.moveTo(-13, 4); ctx.quadraticCurveTo(2, 12, 19, 3); ctx.quadraticCurveTo(8, 8, -13, 4); ctx.fill();
+    ctx.fillStyle = '#438c9a'; ctx.beginPath(); ctx.moveTo(-5, -7); ctx.lineTo(1, -17); ctx.lineTo(7, -7); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-2, 5); ctx.lineTo(5, 13); ctx.lineTo(10, 5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff9e8'; ctx.beginPath(); ctx.arc(17, -3, 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#30434a'; ctx.beginPath(); ctx.arc(17.5, -3, 1, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    if (!riding) {
+      ctx.fillStyle = 'rgba(255,254,246,.92)'; ctx.fillRect(sx - 56, sy - 28, 112, 15);
+      ctx.fillStyle = '#456f76'; ctx.font = 'bold 8px "DM Sans",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('E · FAST DOLPHIN RIDE', sx, sy - 20);
+    }
   }
 
   function updateSoccerBall(dt) {
@@ -1014,14 +1048,21 @@
     }
     if (Math.abs(soccerBall.vx) < 1 && Math.abs(soccerBall.vy) < 1) return;
     const bounds = soccerBounds();
+    const previousX = soccerBall.x, previousY = soccerBall.y;
     soccerBall.x += soccerBall.vx * dt; soccerBall.y += soccerBall.vy * dt;
     const centerY = (bounds.top + bounds.bottom) / 2;
     const goalOpening = soccerField.goalHalf - soccerBall.radius;
     if (soccerBall.x - soccerBall.radius <= bounds.left) {
-      if (soccerBall.y >= centerY - goalOpening && soccerBall.y <= centerY + goalOpening) return scoreSoccerGoal();
+      const crossingX = bounds.left + soccerBall.radius;
+      const crossingT = previousX === soccerBall.x ? 0 : clamp((crossingX - previousX) / (soccerBall.x - previousX), 0, 1);
+      const crossingY = previousY + (soccerBall.y - previousY) * crossingT;
+      if (soccerBall.vx < 0 && Math.abs(crossingY - centerY) <= goalOpening) return scoreSoccerGoal();
       soccerBall.x = bounds.left + soccerBall.radius; soccerBall.vx = Math.abs(soccerBall.vx) * .68;
     } else if (soccerBall.x + soccerBall.radius >= bounds.right) {
-      if (soccerBall.y >= centerY - goalOpening && soccerBall.y <= centerY + goalOpening) return scoreSoccerGoal();
+      const crossingX = bounds.right - soccerBall.radius;
+      const crossingT = previousX === soccerBall.x ? 0 : clamp((crossingX - previousX) / (soccerBall.x - previousX), 0, 1);
+      const crossingY = previousY + (soccerBall.y - previousY) * crossingT;
+      if (soccerBall.vx > 0 && Math.abs(crossingY - centerY) <= goalOpening) return scoreSoccerGoal();
       soccerBall.x = bounds.right - soccerBall.radius; soccerBall.vx = -Math.abs(soccerBall.vx) * .68;
     }
     if (soccerBall.y - soccerBall.radius <= bounds.top) {
@@ -1050,7 +1091,7 @@
     const vectors = { up: [0, -1], right: [1, 0], down: [0, 1], left: [-1, 0] };
     const [dx, dy] = vectors[player.face] || vectors.down;
     soccerBall.vx = dx * 420; soccerBall.vy = dy * 420;
-    showToast('Kick! Aim for either goal!');
+    showToast('Kick! Face left or right to shoot at a goal.');
   }
 
   function updateSoccerHud() {
@@ -1058,12 +1099,34 @@
     const button = $('#soccerKickButton');
     button.hidden = !onField;
     button.disabled = !isSoccerBallInReach();
-    button.title = button.disabled ? 'Move close to the ball to kick' : 'Kick in the direction you are facing (F)';
+    button.title = button.disabled ? 'Move close to the ball to kick' : 'Face left or right and press F or Kick to shoot at a goal';
     if (onField) {
       $('#enemyCount').textContent = `⚽ ${soccerGoals} ${soccerGoals === 1 ? 'goal' : 'goals'}`;
       if (!soccerFieldWasActive) showToast('Soccer time! Get close to the ball and press F or Kick.');
     } else if (soccerFieldWasActive) updateEnemyCount();
     soccerFieldWasActive = onField;
+  }
+
+  function startDolphinRide() {
+    if (!$('#playView').classList.contains('active') || player.ridingSlide || player.dolphinRideTimer > 0 || !isDolphinInReach()) return;
+    player.x = dolphin.x - world.size / 2;
+    player.y = dolphin.y - world.size / 2;
+    player.dolphinRideTimer = dolphinRideDuration;
+    player.inWater = biomeAt(Math.floor(player.x / world.size), Math.floor(player.y / world.size)) === 'water';
+    player.partyDancing = false;
+    $('#gameHint').classList.add('gone');
+    showToast('Hold a direction to ride the dolphin fast! 10 seconds.');
+    updateDashButton();
+    updateDolphinHud();
+  }
+
+  function updateDolphinHud() {
+    const button = $('#dolphinRideButton');
+    const riding = player.dolphinRideTimer > 0;
+    button.hidden = !riding && !isDolphinInReach();
+    button.disabled = riding;
+    button.textContent = riding ? `🐬 ${Math.ceil(player.dolphinRideTimer)}s` : '🐬 Ride (E)';
+    button.title = riding ? 'The dolphin ride ends after 10 seconds' : 'Ride the fast dolphin for 10 seconds (E)';
   }
 
   function drawHero(ctx, time) {
@@ -1196,6 +1259,14 @@
       ctx.fillStyle = '#34463d'; ctx.fillRect(sx - 7, sy, 3, 4); ctx.fillRect(sx + 7, sy, 3, 4);
     }
     if (enemy.hitFlash > 0) { ctx.fillStyle = `rgba(255,255,255,${Math.min(.6, enemy.hitFlash * 2)})`; ctx.beginPath(); ctx.arc(sx, sy + bob, 24, 0, Math.PI * 2); ctx.fill(); }
+    const healthRatio = clamp(enemy.health / enemy.maxHealth, 0, 1);
+    const healthTop = sy - 38 + bob;
+    ctx.fillStyle = 'rgba(39,54,43,.72)'; ctx.fillRect(sx - 25, healthTop - 1, 50, 8);
+    ctx.fillStyle = '#eadfd2'; ctx.fillRect(sx - 22, healthTop + 1, 44, 4);
+    ctx.fillStyle = healthRatio > .5 ? '#79aa69' : healthRatio > .25 ? '#e3b65b' : '#df786b';
+    ctx.fillRect(sx - 22, healthTop + 1, 44 * healthRatio, 4);
+    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    for (let heart = 1; heart < enemy.maxHealth; heart++) ctx.fillRect(sx - 22 + 44 * heart / enemy.maxHealth - .5, healthTop + 1, 1, 4);
     ctx.restore();
   }
 
@@ -1219,6 +1290,7 @@
     drawDanceParty(gameCtx, time);
     for (const idol of idolData) drawIdol(gameCtx, idol, time);
     for (const enemy of enemies) drawEnemy(gameCtx, enemy, time);
+    drawDolphin(gameCtx, time);
     drawHero(gameCtx, time);
   }
 
@@ -1281,9 +1353,12 @@
     if (boss) {
       $('#bossHealthBar').style.width = `${Math.max(0, boss.health / boss.maxHealth * 100)}%`;
       $('#bossHealthLabel').textContent = `${boss.health} ${boss.health === 1 ? 'heart' : 'hearts'}`;
+      $('#bossHealthBar').setAttribute('aria-valuenow', boss.health);
+      $('#bossHealthBar').setAttribute('aria-valuemax', boss.maxHealth);
     } else {
       $('#bossHealthBar').style.width = '0%';
       $('#bossHealthLabel').textContent = 'Guardian nearly befriended';
+      $('#bossHealthBar').setAttribute('aria-valuenow', '0');
     }
   }
   function spawnPosition(index, total, distance) {
@@ -1337,7 +1412,7 @@
     showToast(`${idol.boss} is your friend now! You found the ${idol.title}.`);
   }
   function startDash() {
-    if (!$('#playView').classList.contains('active') || player.ridingSlide || player.dashCooldown > 0 || player.dashTimer > 0) return;
+    if (!$('#playView').classList.contains('active') || player.ridingSlide || player.dolphinRideTimer > 0 || player.dashCooldown > 0 || player.dashTimer > 0) return;
     let dx = 0, dy = 0;
     if (pressed.has('ArrowLeft') || pressed.has('KeyA')) dx--;
     if (pressed.has('ArrowRight') || pressed.has('KeyD')) dx++;
@@ -1359,10 +1434,10 @@
   function updateDashButton() {
     const button = $('#dashButton');
     const cooling = player.dashCooldown > 0 || player.dashTimer > 0;
-    button.disabled = player.ridingSlide || cooling;
+    button.disabled = player.ridingSlide || player.dolphinRideTimer > 0 || cooling;
     button.classList.toggle('dashing', player.dashTimer > 0);
-    button.textContent = player.ridingSlide ? '💦 Whee!' : player.dashTimer > 0 ? '⚡ Go!' : cooling ? '⚡ …' : '⚡ Dash';
-    button.title = player.ridingSlide ? 'Enjoy the ride!' : cooling ? 'Dash is recharging' : 'Dash in the direction you are facing';
+    button.textContent = player.ridingSlide ? '💦 Whee!' : player.dolphinRideTimer > 0 ? '🐬 Riding' : player.dashTimer > 0 ? '⚡ Go!' : cooling ? '⚡ …' : '⚡ Dash';
+    button.title = player.ridingSlide || player.dolphinRideTimer > 0 ? 'Enjoy the ride!' : cooling ? 'Dash is recharging' : 'Dash in the direction you are facing';
   }
   function updateEnemies(dt) {
     for (const enemy of enemies) {
@@ -1402,7 +1477,7 @@
   }
   function updatePartyDance() {
     const tx = Math.floor(player.x / world.size), ty = Math.floor(player.y / world.size);
-    const dancing = isDancePartyTile(tx, ty) && !player.inWater && !player.ridingSlide && player.dashTimer <= 0;
+    const dancing = isDancePartyTile(tx, ty) && !player.inWater && !player.ridingSlide && player.dolphinRideTimer <= 0 && player.dashTimer <= 0;
     if (dancing === player.partyDancing) return;
     player.partyDancing = dancing;
     if (dancing) {
@@ -1424,7 +1499,7 @@
     return { ...waterSlide.points.at(-1), dx: 0, dy: 1 };
   }
   function startWaterSlide() {
-    if (player.ridingSlide) return false;
+    if (player.ridingSlide || player.dolphinRideTimer > 0) return false;
     const start = waterSlide.points[0];
     if (Math.hypot(player.x - start.x, player.y - start.y) > 23) return false;
     player.ridingSlide = true; player.slideProgress = 0; player.slideTimer = 0;
@@ -1457,6 +1532,10 @@
   function movePlayer(dt) {
     player.dashCooldown = Math.max(0, player.dashCooldown - dt);
     if (player.ridingSlide) { rideWaterSlide(dt); return; }
+    if (player.dolphinRideTimer > 0) {
+      player.dolphinRideTimer = Math.max(0, player.dolphinRideTimer - dt);
+      if (player.dolphinRideTimer === 0) showToast('Dolphin ride finished. Find it on the east shore for another ride!');
+    }
     updatePartyDance();
     const dashing = player.dashTimer > 0;
     let dx = 0, dy = 0;
@@ -1473,7 +1552,7 @@
     const tx = dx * norm, ty = dy * norm;
     if (Math.abs(dx) > Math.abs(dy)) player.face = dx > 0 ? 'right' : 'left';
     else if (dy) player.face = dy > 0 ? 'down' : 'up';
-    const speed = dashing ? 365 : player.slideTimer > 0 ? 175 : player.inWater ? 90 : 115;
+    const speed = dashing ? 365 : player.dolphinRideTimer > 0 ? 330 : player.slideTimer > 0 ? 175 : player.inWater ? 90 : 115;
     const amount = speed * dt;
     const nextX = player.x + tx * amount, nextY = player.y + ty * amount;
     if (!collides(nextX, player.y)) player.x = clamp(nextX, 15, world.width * world.size - 15);
@@ -1494,7 +1573,7 @@
     const biome = biomeAt(Math.floor(player.x / 32), Math.floor(player.y / 32));
     updateBiome(biome);
     if (enteredWater) showToast('You slide into the water! Splash!');
-    if (!dashing && startWaterSlide()) { updateDashButton(); return; }
+    if (!dashing && player.dolphinRideTimer <= 0 && startWaterSlide()) { updateDashButton(); return; }
     checkIdolPickup();
     if (dashing) bopEnemies();
     if (player.dashTimer > 0) player.dashTimer = Math.max(0, player.dashTimer - dt);
@@ -1535,6 +1614,7 @@
       movePlayer(dt);
       updateSoccerBall(dt);
       updateSoccerHud();
+      updateDolphinHud();
       updateEnemies(dt);
       renderWorld(time);
       updatePartyMusic(time);
@@ -1556,6 +1636,9 @@
     const key = event.code;
     if ($('#playView').classList.contains('active') && key === 'KeyF') {
       event.preventDefault(); if (!event.repeat) kickSoccerBall(); return;
+    }
+    if ($('#playView').classList.contains('active') && key === 'KeyE') {
+      event.preventDefault(); if (!event.repeat) startDolphinRide(); return;
     }
     if ($('#playView').classList.contains('active') && ['Space', 'ShiftLeft', 'ShiftRight'].includes(key)) {
       event.preventDefault(); startDash(); return;
@@ -1583,16 +1666,17 @@
     activeBossId = null;
     nearbyIdolId = '';
     player.x = 56 * 32; player.y = 40 * 32; player.face = 'down'; player.inWater = false;
-    player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0; player.partyDancing = false; player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; enemies.length = 0;
+    player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0; player.dolphinRideTimer = 0; player.partyDancing = false; player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; enemies.length = 0;
     soccerBall.x = (soccerField.left + soccerField.right + 1) * world.size / 2; soccerBall.y = (soccerField.top + soccerField.bottom + 1) * world.size / 2;
     soccerBall.vx = 0; soccerBall.vy = 0; soccerBall.resetTimer = 0; soccerGoals = 0; soccerFieldWasActive = false;
     $('#soccerKickButton').hidden = true;
     lastBiome = ''; updateBiome('meadow'); pressed.clear();
-    updateIdolProgress(); updateBossHud(); updateEnemyCount(); updateDashButton();
+    updateIdolProgress(); updateBossHud(); updateEnemyCount(); updateDashButton(); updateDolphinHud();
     showToast('Back in the sunny meadow.');
   });
   $('#dashButton').addEventListener('click', startDash);
   $('#soccerKickButton').addEventListener('click', kickSoccerBall);
+  $('#dolphinRideButton').addEventListener('click', startDolphinRide);
 
   // Optional sound is synthesized locally: a few gentle, short notes, with no downloaded audio.
   function playNote(frequency, duration, volume) {

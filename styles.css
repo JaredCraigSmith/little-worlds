@@ -53,3 +53,8 @@
 .soccer-kick-button:disabled{opacity:.58;cursor:default}
 .soccer-kick-button[hidden]{display:none}
 @media(max-width:760px){.soccer-kick-button{min-height:29px;padding:0 8px;font-size:8px}}
+.dolphin-ride-button{min-height:31px;padding:0 10px;border:1px solid rgba(255,255,255,.92);border-radius:9px;background:rgba(185,235,239,.96);color:#356b75;font-size:9px;font-weight:800;box-shadow:0 2px 7px rgba(38,67,43,.15);backdrop-filter:blur(5px);touch-action:manipulation}
+.dolphin-ride-button:hover:not(:disabled){background:#d8f5f2}
+.dolphin-ride-button:disabled{opacity:.82;cursor:default}
+.dolphin-ride-button[hidden]{display:none}
+@media(max-width:760px){.dolphin-ride-button{min-height:29px;padding:0 8px;font-size:8px}}
