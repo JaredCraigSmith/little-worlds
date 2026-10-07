@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f6ef">
+  <meta name="description" content="Draw a little hero, bring them to life, and explore a tiny island world.">
+  <title>Little Worlds — draw, play, explore</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#play" aria-label="Little Worlds home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="brand-name">little<span>worlds</span></span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <button class="nav-button active" data-view="play" type="button"><span class="nav-icon">✦</span> Play</button>
+        <button class="nav-button" data-view="studio" type="button"><span class="nav-icon">▦</span> Sprite studio</button>
+      </nav>
+      <div class="topbar-right">
+        <span class="made-for">A little world made by you</span>
+        <button class="print-button" id="printButton" type="button"><span aria-hidden="true">▤</span> Print a drawing grid</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="playView" class="view active" aria-labelledby="playTitle">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow"><span class="eyebrow-dot"></span> YOUR VERY OWN ADVENTURE</div>
+            <h1 id="playTitle">A whole world, <em>one little hero.</em></h1>
+            <p>Wander through the island, find a new place, and see your drawing come to life.</p>
+          </div>
+          <button class="subtle-link" data-view="studio" type="button">Make a new character <span>↗</span></button>
+        </div>
+
+        <div class="play-layout">
+          <aside class="side-column">
+            <section class="card character-card" aria-label="Your explorer">
+              <div class="card-kicker">YOUR EXPLORER <span class="live-dot"></span></div>
+              <div class="hero-summary">
+                <div class="hero-portrait"><canvas id="portraitCanvas" width="96" height="96" aria-label="Character preview"></canvas></div>
+                <div class="hero-info">
+                  <label for="heroName">A name for your hero</label>
+                  <input id="heroName" type="text" maxlength="18" value="Pip" autocomplete="off">
+                  <div class="hero-status"><span class="tiny-sparkle">✦</span> Ready to explore</div>
+                </div>
+              </div>
+              <div class="card-divider"></div>
+              <div class="discovery-head"><span>Places discovered</span><strong id="discoveryCount">1 <small>/ 5</small></strong></div>
+              <div class="discovery-track"><span id="discoveryProgress"></span></div>
+              <div class="discovery-list" id="discoveryList">
+                <span class="discovery-item found" data-biome="meadow"><i>✿</i> Meadow</span>
+                <span class="discovery-item" data-biome="forest"><i>♣</i> Forest</span>
+                <span class="discovery-item" data-biome="snow"><i>❄</i> Snow</span>
+                <span class="discovery-item" data-biome="desert"><i>☀</i> Desert</span>
+                <span class="discovery-item" data-biome="water"><i>≈</i> Water</span>
+              </div>
+            </section>
+
+            <section class="card how-card">
+              <div class="how-icon">✎</div>
+              <div class="how-copy"><strong>Draw your own hero</strong><p>Print a grid, draw in the boxes, then bring it into the studio.</p></div>
+              <button class="arrow-button" data-view="studio" type="button" aria-label="Open sprite studio">↗</button>
+              <button class="card-print" id="smallPrintButton" type="button">Get the drawing grid <span>→</span></button>
+            </section>
+
+            <div class="little-note"><span>✦</span><p>Your character is saved on this device, so your art will be here next time.</p></div>
+          </aside>
+
+          <section class="game-column" aria-label="Island game">
+            <div class="game-card">
+              <div class="game-topline">
+                <div class="world-title"><span class="world-mark">⌂</span><div><strong>Little Isle</strong><small>Take a look around</small></div></div>
+                <div class="biome-pill" id="biomePill"><span class="biome-emoji">🌿</span><span id="biomeName">Sunny Meadow</span></div>
+                <button class="sound-toggle" id="soundToggle" type="button" aria-label="Toggle ambient sounds" title="Sound is off"><span>♫</span><i></i></button>
+              </div>
+              <div class="game-viewport" id="gameViewport">
+                <canvas id="gameCanvas" aria-label="Top down island world game"></canvas>
+                <div class="game-hint" id="gameHint"><span class="hint-key">W</span><span class="hint-key">A</span><span class="hint-key">S</span><span class="hint-key">D</span><span class="hint-copy">to wander · Space / Shift to dash</span><span class="hint-divider"></span><span class="hint-touch">or use the arrow pad</span></div>
+                <div class="game-toast" id="gameToast" aria-live="polite"></div>
+                <div class="touch-pad" aria-label="Movement controls">
+                  <button class="pad-key pad-up" data-key="ArrowUp" type="button" aria-label="Move up">↑</button>
+                  <button class="pad-key pad-left" data-key="ArrowLeft" type="button" aria-label="Move left">←</button>
+                  <button class="pad-key pad-down" data-key="ArrowDown" type="button" aria-label="Move down">↓</button>
+                  <button class="pad-key pad-right" data-key="ArrowRight" type="button" aria-label="Move right">→</button>
+                </div>
+                <div class="combat-controls" aria-label="Action controls">
+                  <span class="enemy-count" id="enemyCount" aria-live="polite">0 nearby</span>
+                  <button class="enemy-spawn-button" id="summonEnemiesButton" type="button">✦ Summon enemies</button>
+                  <button class="dash-button" id="dashButton" type="button" aria-label="Dash attack">⚡ Dash</button>
+                </div>
+                <div class="map-stamp"><span>✦</span> THE ISLAND IS YOURS</div>
+              </div>
+              <div class="game-bottomline">
+                <div class="movement-copy"><span class="keyboard-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or arrows to move <span class="movement-sep">·</span> Space / Shift to dash</div>
+                <button class="restart-button" id="restartButton" type="button"><span>↻</span> Back to the meadow</button>
+              </div>
+            </div>
+            <div class="under-game"><span class="under-game-sparkle">✦</span><span>There are little surprises tucked all over the island.</span><span class="under-game-right">No wrong turns <span>☺</span></span></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="studioView" class="view studio-view" aria-labelledby="studioTitle" hidden>
+        <div class="page-heading studio-heading">
+          <div>
+            <div class="eyebrow"><span class="eyebrow-dot coral"></span> THE SPRITE STUDIO</div>
+            <h1 id="studioTitle">Your doodle is the <em>main character.</em></h1>
+            <p>Draw a different pose in each box. We’ll turn your paper sheet into a moving sprite.</p>
+          </div>
+          <button class="back-to-world" data-view="play" type="button"><span>←</span> Back to your world</button>
+        </div>
+
+        <div class="studio-layout">
+          <aside class="studio-sidebar">
+            <section class="card studio-step-card">
+              <div class="studio-steps" aria-label="Sprite making steps">
+                <span class="step-number current" id="stepOne">1</span><span class="step-line"></span><span class="step-number" id="stepTwo">2</span>
+                <span class="step-label label-one">Draw</span><span class="step-label label-two">Bring it in</span>
+              </div>
+              <div class="step-content" id="drawStep">
+                <div class="step-eyebrow">FIRST, MAKE SOME ART</div>
+                <h2>Give your hero<br>a few little poses.</h2>
+                <p>Draw up, right, and down. The left-facing poses are made by flipping the right-facing ones.</p>
+                <div class="mini-sheet" aria-hidden="true">
+                  <div class="mini-row-label">↑</div><i></i><i></i><i></i><i></i>
+                  <div class="mini-row-label">→</div><i></i><i></i><i></i><i></i>
+                  <div class="mini-row-label">↓</div><i></i><i></i><i></i><i></i>
+                </div>
+                <div class="direction-key"><span><b>↑</b> Up</span><span><b>→</b> Right</span><span><b>↓</b> Down</span></div>
+                <button class="primary-button full-button" id="studioPrintButton" type="button"><span>▤</span> Print my drawing grid <span class="button-end">↗</span></button>
+                <div class="tiny-tip"><span>✦</span> Keep the whole character inside each box.</div>
+              </div>
+              <div class="step-content bring-step" id="bringStep" hidden>
+                <div class="step-eyebrow">THEN, BRING IT TO LIFE</div>
+                <h2>Pop your drawing<br>into the island.</h2>
+                <p>Take a photo straight above your sheet, or choose a picture you already have.</p>
+                <label class="upload-drop" id="uploadDrop" for="sheetInput">
+                  <span class="upload-cloud">↑</span><strong>Choose a sheet photo</strong><small>JPG or PNG · from your device</small>
+                  <span class="upload-choose">Choose a photo</span>
+                </label>
+                <input id="sheetInput" type="file" accept="image/*" capture="environment" hidden>
+                <button class="sample-button" id="sampleButton" type="button"><span>✦</span> Try a sample character</button>
+                <div class="tiny-tip"><span>◎</span> Bright light and a flat page make the best photos.</div>
+              </div>
+            </section>
+            <section class="card studio-help"><div class="help-bubble">?</div><div><strong>Need a hand?</strong><p>Ask a grown-up to help take a straight-on picture of your page.</p></div></section>
+          </aside>
+
+          <section class="studio-workspace" aria-label="Sprite sheet workspace">
+            <div class="workspace-bar">
+              <div><strong id="workspaceTitle">Your drawing grid</strong><span id="workspaceSubtitle">A little practice sheet for your hero</span></div>
+              <div class="workspace-actions"><span class="paper-badge" id="paperBadge"><i></i> PRINTABLE SHEET</span><button class="text-button" id="clearPhotoButton" type="button" hidden>Clear photo</button></div>
+            </div>
+            <div class="workspace-body" id="workspaceBody">
+              <div class="paper-preview" id="paperPreview">
+                <div class="paper-top"><div class="paper-brand"><span class="brand-mark mini-mark"><i></i><i></i><i></i><i></i></span> little<span>worlds</span></div><div class="paper-title">MY LITTLE HERO <span>✦</span></div><div class="paper-name-line">Name <i></i></div></div>
+                <div class="paper-instruction">Draw the same character in a new pose in every box.</div>
+                <div class="paper-grid" id="paperGrid"></div>
+                <div class="paper-footer"><span><b>↑ → ↓</b> Left is flipped from right for you.</span><span>Color is welcome! <i>☺</i></span></div>
+                <div class="paper-url">LITTLE WORLDS · A TINY PLACE TO PLAY</div>
+              </div>
+              <div class="scan-workspace" id="scanWorkspace" hidden>
+                <div class="crop-stage" id="cropStage"><canvas id="cropCanvas" aria-label="Photo crop preview"></canvas><div class="crop-overlay" id="cropOverlay"><div class="crop-grid-guides"></div><span class="crop-corner tl"></span><span class="crop-corner tr"></span><span class="crop-corner bl"></span><span class="crop-corner br"></span><span class="crop-label">LINE UP THE 4 × 3 BOXES</span></div></div>
+                <div class="crop-tools">
+                  <div class="paper-pick-copy"><strong>Paper color <span class="paper-swatch" id="paperSwatch"></span></strong><small id="paperColorStatus" aria-live="polite">Automatic · we’ll read each box edge</small></div>
+                  <button class="sample-color-button" id="pickBackgroundButton" type="button">◎ <span>Pick background</span></button>
+                  <label class="tolerance-control" for="backgroundTolerance"><span>Color tolerance <output id="toleranceValue">36</output></span><input id="backgroundTolerance" type="range" min="0" max="120" value="36"><small>Raise for shadows; lower if drawing lines fade.</small></label>
+                  <label class="tolerance-control" for="edgeBuffer"><span>Box edge buffer <output id="edgeBufferValue">7%</output></span><input id="edgeBuffer" type="range" min="0" max="18" value="7"><small>Raise it if grid lines show at the sides.</small></label>
+                </div>
+                <div class="crop-footer"><div><strong>Match the printed boxes</strong><small>Move the box or drag any corner. The guide lines should sit on the grid lines.</small><button class="text-button crop-reset" id="resetCropButton" type="button">Reset crop</button></div><button class="primary-button" id="useSheetButton" type="button">Use this drawing <span>→</span></button></div>
+              </div>
+              <div class="imported-workspace" id="importedWorkspace" hidden>
+                <div class="sprite-preview-board"><div class="sprite-preview-header"><span class="preview-check">✓</span><div><strong>Looking good!</strong><small>Click a frame to zoom in or erase stray background.</small></div><button class="text-button" id="adjustPhotoButton" type="button">Adjust crop & color</button></div>
+                  <div class="sprite-adjust-bar">
+                    <div class="adjustment-title"><strong>Fine-tune the cutout</strong><small id="previewStatus" aria-live="polite">Preview is up to date</small></div>
+                    <label class="tolerance-control" for="previewTolerance"><span>Color tolerance <output id="previewToleranceValue">36</output></span><input id="previewTolerance" type="range" min="0" max="120" value="36"><small>Lower if drawing lines fade.</small></label>
+                    <label class="tolerance-control" for="previewBuffer"><span>Box edge buffer <output id="previewBufferValue">7%</output></span><input id="previewBuffer" type="range" min="0" max="18" value="7"><small>Raise it to trim more.</small></label>
+                    <button class="recalculate-button" id="recalculatePreviewButton" type="button" disabled>Recalculate preview</button>
+                  </div>
+                  <div class="sprite-result-grid" id="spriteResultGrid"></div>
+                </div>
+                <div class="imported-footer"><label class="toggle-row"><input type="checkbox" id="paperRemoval" checked><span class="custom-check"></span><span>Remove picked background <small>Color floods in from the edges and stops at the drawing.</small></span></label><button class="primary-button" id="playWithSpriteButton" type="button">Play with my hero <span>→</span></button></div>
+              </div>
+            </div>
+            <div class="workspace-note" id="workspaceNote"><span>✦</span> Print at 100% size for the clearest boxes. Plain paper works great.</div>
+          </section>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer"><span>little<span>worlds</span> <i>✦</i> made for little imaginations</span><span>Everything stays on this device.</span></footer>
+  </div>
+
+  <dialog class="frame-dialog" id="frameDialog" aria-labelledby="frameDialogTitle">
+    <div class="frame-dialog-card">
+      <button class="frame-dialog-close" id="closeFrameDialog" type="button" aria-label="Close enlarged frame">×</button>
+      <div class="frame-detail-image"><img id="frameDetailImage" alt="Enlarged sprite frame"><canvas id="frameEditorCanvas" width="64" height="64" aria-label="Draw over unwanted background to erase it" hidden></canvas></div>
+      <div class="frame-detail-caption"><strong id="frameDialogTitle">Down · pose 1 of 4</strong><span>Sprite frame</span></div>
+      <button class="frame-edit-button" id="editFrameButton" type="button">✎ Erase stray background</button>
+      <div class="frame-editor-panel" id="frameEditorPanel" hidden>
+        <p>Drag over paper or grid lines to erase them. Touch-ups on right and left stay mirrored.</p>
+        <label class="eraser-size-control" for="eraserSize"><span>Brush size <output id="eraserSizeValue">4 px</output></span><input id="eraserSize" type="range" min="1" max="12" value="4"></label>
+        <div class="frame-editor-actions"><button id="undoEraseButton" type="button" disabled>Undo stroke</button><button id="clearFrameEraseButton" type="button">Clear erasures</button></div>
+        <button class="frame-editor-done" id="doneFrameEditingButton" type="button">Done editing</button>
+      </div>
+      <div class="frame-detail-nav"><button id="previousFrame" type="button" aria-label="Previous frame">← Previous</button><button id="nextFrame" type="button">Next →</button></div>
+    </div>
+  </dialog>
+
+  <section id="printSheet" aria-label="Printable character drawing grid">
+    <div class="print-head"><div class="print-logo"><span class="brand-mark"><i></i><i></i><i></i><i></i></span> little<span>worlds</span></div><div class="print-title"><h1>MY LITTLE HERO</h1><span>✦</span></div><div class="print-name">Name <i></i></div></div>
+    <p class="print-instructions">Draw up, right, and down. Little changes between boxes make your hero move; left is flipped from right!</p>
+    <div class="print-grid" id="printGrid"></div>
+    <div class="print-bottom"><span><b>↑ Up</b> &nbsp; <b>→ Right</b> &nbsp; <b>↓ Down</b></span><span>Left-facing poses are mirrored automatically.</span></div>
+    <div class="print-footer">A TINY PLACE TO PLAY <span>littleworlds ✦</span></div>
+  </section>
+  <script src="app.js"></script>
+</body>
+</html>
