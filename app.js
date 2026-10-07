@@ -734,7 +734,7 @@
   };
   const danceParty = { left: 60, right: 64, top: 40, bottom: 43 };
   const partyColors = ['#f37ca2', '#ffd36a', '#76d8c5', '#9b8bf3', '#a6dc72'];
-  const soccerField = { left: 45, right: 53, top: 55, bottom: 59, goalHalf: 25 };
+  const soccerField = { left: 59, right: 67, top: 34, bottom: 38, goalHalf: 25 };
   const soccerBall = {
     x: (soccerField.left + soccerField.right + 1) * world.size / 2,
     y: (soccerField.top + soccerField.bottom + 1) * world.size / 2,
