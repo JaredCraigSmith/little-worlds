@@ -31,7 +31,9 @@
   const cropStage = $('#cropStage');
   const cropOverlay = $('#cropOverlay');
   const gameViewport = $('#gameViewport');
-  const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, partyDancing: false, slideTimer: 0, slideDX: 0, slideDY: 1, ridingSlide: false, slideProgress: 0, dolphinRideTimer: 0, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
+  const maxPlayerHealth = 3;
+  const playerHealthRegenDelay = 5, playerHealthRegenInterval = 4;
+  const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, health: maxPlayerHealth, damageCooldown: 0, healthRegenTimer: 0, partyDancing: false, slideTimer: 0, slideDX: 0, slideDY: 1, ridingSlide: false, slideProgress: 0, dolphinRideTimer: 0, sharkScareCooldown: 0, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
   const pressed = new Set();
   const enemies = [];
   const found = new Set(['meadow']);
@@ -737,6 +739,9 @@
   const soccerField = { left: 27, right: 35, top: 38, bottom: 42, goalHalf: 38 };
   const dolphin = { x: 104 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
   const dolphinRideDuration = 10;
+  const shark = { x: 3 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
+  const sharkShore = { x: 7 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
+  const sharkFearRadius = 96;
   const soccerBall = {
     x: (soccerField.left + soccerField.right + 1) * world.size / 2,
     y: (soccerField.top + soccerField.bottom + 1) * world.size / 2,
@@ -766,6 +771,20 @@
   function isDolphinInReach() {
     const x = player.x + world.size / 2, y = player.y + world.size / 2;
     return Math.hypot(dolphin.x - x, dolphin.y - y) <= 72;
+  }
+  function updatePlayerHealth() {
+    $('#healthHearts').textContent = `${'♥ '.repeat(player.health)}${'♡ '.repeat(maxPlayerHealth - player.health)}`.trim();
+    $('#playerHealth').setAttribute('aria-label', `Player health: ${player.health} of ${maxPlayerHealth} hearts`);
+    $('#playerHealth').classList.toggle('low-health', player.health === 1);
+  }
+  function updatePlayerHealthRegeneration(dt) {
+    if (player.health >= maxPlayerHealth) { player.healthRegenTimer = 0; return; }
+    player.healthRegenTimer = Math.max(0, player.healthRegenTimer - dt);
+    if (player.healthRegenTimer > 0) return;
+    player.health++;
+    updatePlayerHealth();
+    player.healthRegenTimer = player.health < maxPlayerHealth ? playerHealthRegenInterval : 0;
+    showToast(`You recovered a heart. ${player.health} of ${maxPlayerHealth} hearts.`);
   }
   function biomeAt(tx, ty) {
     const dx = (tx - 56) / 51, dy = (ty - 40) / 35;
@@ -1041,6 +1060,48 @@
     }
   }
 
+  function sharkPosition(time) {
+    return { x: shark.x, y: shark.y + Math.sin(time * .0022) * 13 };
+  }
+
+  function drawShark(ctx, time) {
+    const position = sharkPosition(time);
+    const sx = position.x - cameraX, sy = position.y - cameraY;
+    if (sx < -60 || sy < -60 || sx > gameWidth + 60 || sy > gameHeight + 60) return;
+    ctx.save();
+    ctx.fillStyle = 'rgba(37,72,83,.2)'; ctx.beginPath(); ctx.ellipse(sx, sy + 12, 23, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.translate(sx, sy);
+    ctx.fillStyle = '#466e7c'; ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(-34, -11); ctx.lineTo(-29, 0); ctx.lineTo(-34, 11); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#6f9aaa'; ctx.beginPath(); ctx.moveTo(-24, 0); ctx.quadraticCurveTo(-14, -12, 5, -10); ctx.quadraticCurveTo(19, -8, 28, 0); ctx.quadraticCurveTo(18, 8, 4, 10); ctx.quadraticCurveTo(-15, 9, -24, 0); ctx.fill();
+    ctx.fillStyle = '#d9e9e5'; ctx.beginPath(); ctx.moveTo(-13, 4); ctx.quadraticCurveTo(2, 12, 20, 3); ctx.quadraticCurveTo(8, 8, -13, 4); ctx.fill();
+    ctx.fillStyle = '#466e7c'; ctx.beginPath(); ctx.moveTo(-7, -8); ctx.lineTo(1, -21); ctx.lineTo(9, -7); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-2, 5); ctx.lineTo(5, 14); ctx.lineTo(11, 5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff9e8'; ctx.beginPath(); ctx.arc(18, -3, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#263a41'; ctx.beginPath(); ctx.arc(18.5, -3, 1, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,254,246,.92)'; ctx.fillRect(sx - 51, sy - 34, 102, 15);
+    ctx.fillStyle = '#456f76'; ctx.font = 'bold 8px "DM Sans",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('SHARK · KEEP BACK', sx, sy - 26);
+  }
+
+  function updateShark(dt, time) {
+    player.sharkScareCooldown = Math.max(0, player.sharkScareCooldown - dt);
+    if (player.sharkScareCooldown > 0) return;
+    const position = sharkPosition(time);
+    const playerX = player.x + world.size / 2, playerY = player.y + world.size / 2;
+    if (Math.hypot(playerX - position.x, playerY - position.y) >= sharkFearRadius) return;
+    if (!hurtPlayer('shark')) return;
+    player.x = sharkShore.x - world.size / 2; player.y = sharkShore.y - world.size / 2;
+    player.face = 'right'; player.inWater = false; player.moving = false;
+    player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0;
+    player.dolphinRideTimer = 0; player.partyDancing = false;
+    player.dashTimer = 0; player.dashCooldown = 0; player.sharkScareCooldown = 1.4;
+    pressed.clear();
+    updateBiome(biomeAt(Math.floor(player.x / world.size), Math.floor(player.y / world.size)));
+    updateDashButton(); updateDolphinHud();
+    showToast('Shark! It scared you back onto the west shore.');
+  }
+
   function updateSoccerBall(dt) {
     if (soccerBall.resetTimer > 0) {
       soccerBall.resetTimer = Math.max(0, soccerBall.resetTimer - dt);
@@ -1129,10 +1190,27 @@
     button.title = riding ? 'The dolphin ride ends after 10 seconds' : 'Ride the fast dolphin for 10 seconds (E)';
   }
 
+  function hurtPlayer(source = 'enemy') {
+    if (player.health <= 0) return false;
+    if (player.damageCooldown > 0 || player.dashTimer > 0) return true;
+    player.health = Math.max(0, player.health - 1);
+    player.damageCooldown = 1.1;
+    player.healthRegenTimer = playerHealthRegenDelay;
+    updatePlayerHealth();
+    if (player.health === 0) {
+      resetGame('You ran out of hearts. Back in the sunny meadow!');
+      return false;
+    }
+    showToast(source === 'shark' ? `The shark nipped you! ${player.health} hearts left.` : `Ouch! ${player.health} hearts left.`);
+    return true;
+  }
+
   function drawHero(ctx, time) {
     const sx = player.x - cameraX + world.size / 2;
     const sy = player.y - cameraY + world.size / 2;
     if (sx < -60 || sy < -60 || sx > gameWidth + 60 || sy > gameHeight + 60) return;
+    ctx.save();
+    if (player.damageCooldown > 0 && Math.floor(time / 95) % 2 === 0) ctx.globalAlpha = .42;
     const dancing = player.partyDancing;
     const bob = dancing ? Math.sin(time * .018) * 2.5 + Math.abs(Math.sin(time * .012)) * 2 : player.moving ? Math.sin(time * .018) * 1.8 : Math.sin(time * .0025) * .7;
     ctx.fillStyle = 'rgba(46,72,49,.21)'; ctx.beginPath(); ctx.ellipse(sx, sy + 11, 11, 4.5, 0, 0, Math.PI * 2); ctx.fill();
@@ -1187,6 +1265,7 @@
       }
       ctx.restore();
     }
+    ctx.restore();
   }
 
   let cameraX = 0, cameraY = 0;
@@ -1291,6 +1370,7 @@
     for (const idol of idolData) drawIdol(gameCtx, idol, time);
     for (const enemy of enemies) drawEnemy(gameCtx, enemy, time);
     drawDolphin(gameCtx, time);
+    drawShark(gameCtx, time);
     drawHero(gameCtx, time);
   }
 
@@ -1446,7 +1526,10 @@
       if (enemy.staggerTimer > 0) { enemy.staggerTimer = Math.max(0, enemy.staggerTimer - dt); continue; }
       const dx = player.x - enemy.x, dy = player.y - enemy.y;
       const distance = Math.hypot(dx, dy);
-      if (distance < 20) continue;
+      if (distance < 30) {
+        if (!hurtPlayer('enemy')) return;
+        continue;
+      }
       const step = Math.min(enemy.speed * dt, distance - 19);
       const nextX = enemy.x + dx / distance * step, nextY = enemy.y + dy / distance * step;
       if (!collides(nextX, enemy.y)) enemy.x = nextX;
@@ -1531,6 +1614,8 @@
   }
   function movePlayer(dt) {
     player.dashCooldown = Math.max(0, player.dashCooldown - dt);
+    player.damageCooldown = Math.max(0, player.damageCooldown - dt);
+    updatePlayerHealthRegeneration(dt);
     if (player.ridingSlide) { rideWaterSlide(dt); return; }
     if (player.dolphinRideTimer > 0) {
       player.dolphinRideTimer = Math.max(0, player.dolphinRideTimer - dt);
@@ -1612,6 +1697,7 @@
     lastTick = time;
     if ($('#playView').classList.contains('active')) {
       movePlayer(dt);
+      updateShark(dt, time);
       updateSoccerBall(dt);
       updateSoccerHud();
       updateDolphinHud();
@@ -1661,19 +1747,21 @@
     button.addEventListener('pointerleave', up);
     button.addEventListener('contextmenu', event => event.preventDefault());
   });
-  $('#restartButton').addEventListener('click', () => {
+  function resetGame(message = 'Back in the sunny meadow.') {
     if (activeBossId) awakenedIdols.delete(activeBossId);
     activeBossId = null;
     nearbyIdolId = '';
-    player.x = 56 * 32; player.y = 40 * 32; player.face = 'down'; player.inWater = false;
-    player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0; player.dolphinRideTimer = 0; player.partyDancing = false; player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; enemies.length = 0;
+    player.x = 56 * 32; player.y = 40 * 32; player.face = 'down'; player.moving = false; player.inWater = false;
+    player.health = maxPlayerHealth; player.damageCooldown = 0; player.healthRegenTimer = 0;
+    player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0; player.dolphinRideTimer = 0; player.sharkScareCooldown = 0; player.partyDancing = false; player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; enemies.length = 0;
     soccerBall.x = (soccerField.left + soccerField.right + 1) * world.size / 2; soccerBall.y = (soccerField.top + soccerField.bottom + 1) * world.size / 2;
     soccerBall.vx = 0; soccerBall.vy = 0; soccerBall.resetTimer = 0; soccerGoals = 0; soccerFieldWasActive = false;
     $('#soccerKickButton').hidden = true;
     lastBiome = ''; updateBiome('meadow'); pressed.clear();
-    updateIdolProgress(); updateBossHud(); updateEnemyCount(); updateDashButton(); updateDolphinHud();
-    showToast('Back in the sunny meadow.');
-  });
+    updatePlayerHealth(); updateIdolProgress(); updateBossHud(); updateEnemyCount(); updateDashButton(); updateDolphinHud();
+    showToast(message);
+  }
+  $('#restartButton').addEventListener('click', () => resetGame());
   $('#dashButton').addEventListener('click', startDash);
   $('#soccerKickButton').addEventListener('click', kickSoccerBall);
   $('#dolphinRideButton').addEventListener('click', startDolphinRide);
@@ -1717,6 +1805,6 @@
   restoreSprite();
   resizeGame();
   updateBiome('meadow');
-  updateIdolProgress(); updateBossHud(); updateEnemyCount(); updateDashButton();
+  updatePlayerHealth(); updateIdolProgress(); updateBossHud(); updateEnemyCount(); updateDashButton();
   requestAnimationFrame(loop);
 })();

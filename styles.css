@@ -58,3 +58,8 @@
 .dolphin-ride-button:disabled{opacity:.82;cursor:default}
 .dolphin-ride-button[hidden]{display:none}
 @media(max-width:760px){.dolphin-ride-button{min-height:29px;padding:0 8px;font-size:8px}}
+.player-health{position:absolute;z-index:3;top:52px;left:13px;display:flex;align-items:center;gap:7px;padding:5px 8px;border:1px solid rgba(255,255,255,.82);border-radius:9px;background:rgba(255,254,246,.9);box-shadow:0 2px 7px rgba(38,67,43,.12);backdrop-filter:blur(5px)}
+.player-health small{color:#829087;font-size:7px;font-weight:800;letter-spacing:.7px}
+.player-health span{color:#d66e67;font-size:13px;line-height:1;letter-spacing:1px;white-space:nowrap}
+.player-health.low-health{border-color:#e9aa91;background:rgba(255,245,235,.96)}
+@media(max-width:760px){.player-health{top:48px;left:9px;padding:4px 7px}.player-health span{font-size:12px}}
