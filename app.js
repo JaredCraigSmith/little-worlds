@@ -734,8 +734,32 @@
   };
   const danceParty = { left: 60, right: 64, top: 40, bottom: 43 };
   const partyColors = ['#f37ca2', '#ffd36a', '#76d8c5', '#9b8bf3', '#a6dc72'];
+  const soccerField = { left: 45, right: 53, top: 55, bottom: 59, goalHalf: 25 };
+  const soccerBall = {
+    x: (soccerField.left + soccerField.right + 1) * world.size / 2,
+    y: (soccerField.top + soccerField.bottom + 1) * world.size / 2,
+    vx: 0, vy: 0, radius: 8, resetTimer: 0
+  };
+  let soccerGoals = 0;
+  let soccerFieldWasActive = false;
   function isDancePartyTile(tx, ty) {
     return tx >= danceParty.left && tx <= danceParty.right && ty >= danceParty.top && ty <= danceParty.bottom;
+  }
+  function soccerBounds() {
+    return {
+      left: soccerField.left * world.size,
+      right: (soccerField.right + 1) * world.size,
+      top: soccerField.top * world.size,
+      bottom: (soccerField.bottom + 1) * world.size
+    };
+  }
+  function isPlayerOnSoccerField() {
+    const bounds = soccerBounds(), x = player.x + world.size / 2, y = player.y + world.size / 2;
+    return x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom;
+  }
+  function isSoccerBallInReach() {
+    const x = player.x + world.size / 2, y = player.y + world.size / 2;
+    return Math.hypot(soccerBall.x - x, soccerBall.y - y) <= 48;
   }
   function biomeAt(tx, ty) {
     const dx = (tx - 56) / 51, dy = (ty - 40) / 35;
@@ -757,6 +781,7 @@
     if (idolData.some(idol => Math.abs(tx - idol.tx) <= 1 && Math.abs(ty - idol.ty) <= 1)) return null;
     if (waterSlide.points.some(point => Math.abs(tx - Math.floor(point.x / world.size)) <= 1 && Math.abs(ty - Math.floor(point.y / world.size)) <= 1)) return null;
     if (tx >= danceParty.left - 1 && tx <= danceParty.right + 1 && ty >= danceParty.top - 1 && ty <= danceParty.bottom + 1) return null;
+    if (tx >= soccerField.left - 1 && tx <= soccerField.right + 1 && ty >= soccerField.top - 1 && ty <= soccerField.bottom + 1) return null;
     const value = hash(tx, ty, 4);
     if (biome === 'forest' && value < .15) return { type: 'tree', biome };
     if (biome === 'snow' && value < .1) return { type: 'pine', biome };
@@ -929,6 +954,118 @@
     ctx.restore();
   }
 
+  function drawSoccerBall(ctx, time) {
+    const sx = soccerBall.x - cameraX, sy = soccerBall.y - cameraY;
+    if (sx < -20 || sy < -20 || sx > gameWidth + 20 || sy > gameHeight + 20) return;
+    const bob = Math.min(1.2, Math.hypot(soccerBall.vx, soccerBall.vy) / 260) * Math.abs(Math.sin(time * .018));
+    ctx.fillStyle = 'rgba(39,59,45,.25)'; ctx.beginPath(); ctx.ellipse(sx, sy + 7, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fffdf4'; ctx.beginPath(); ctx.arc(sx, sy - bob, soccerBall.radius, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#55645b'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.fillStyle = '#35433c'; ctx.beginPath(); ctx.arc(sx, sy - bob, 2.4, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < 5; i++) {
+      const angle = i * Math.PI * 2 / 5 - Math.PI / 2;
+      ctx.beginPath(); ctx.arc(sx + Math.cos(angle) * 5, sy - bob + Math.sin(angle) * 5, 1.25, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawSoccerField(ctx, time) {
+    const bounds = soccerBounds();
+    const left = bounds.left - cameraX, right = bounds.right - cameraX;
+    const top = bounds.top - cameraY, bottom = bounds.bottom - cameraY;
+    const centerX = (left + right) / 2, centerY = (top + bottom) / 2;
+    const width = right - left, height = bottom - top, goalTop = centerY - soccerField.goalHalf, goalBottom = centerY + soccerField.goalHalf;
+    ctx.save();
+    ctx.fillStyle = 'rgba(47,72,52,.26)'; ctx.fillRect(left - 4, top - 4, width + 8, height + 8);
+    ctx.fillStyle = '#388152'; ctx.fillRect(left, top, width, height);
+    for (let i = 0; i < soccerField.right - soccerField.left + 1; i += 2) {
+      ctx.fillStyle = 'rgba(165,220,142,.18)'; ctx.fillRect(left + i * world.size, top, Math.min(2, soccerField.right - soccerField.left + 1 - i) * world.size, height);
+    }
+    ctx.strokeStyle = 'rgba(248,255,232,.9)'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(left, top); ctx.lineTo(right, top);
+    ctx.moveTo(left, bottom); ctx.lineTo(right, bottom);
+    ctx.moveTo(left, top); ctx.lineTo(left, goalTop); ctx.moveTo(left, goalBottom); ctx.lineTo(left, bottom);
+    ctx.moveTo(right, top); ctx.lineTo(right, goalTop); ctx.moveTo(right, goalBottom); ctx.lineTo(right, bottom);
+    ctx.moveTo(centerX, top); ctx.lineTo(centerX, bottom); ctx.stroke();
+    ctx.beginPath(); ctx.arc(centerX, centerY, 23, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeRect(left, centerY - 42, 38, 84); ctx.strokeRect(right - 38, centerY - 42, 38, 84);
+    for (const goalX of [left - 17, right]) {
+      ctx.fillStyle = 'rgba(255,250,230,.42)'; ctx.fillRect(goalX, goalTop, 17, goalBottom - goalTop);
+      ctx.strokeStyle = '#fff9e9'; ctx.lineWidth = 2; ctx.strokeRect(goalX, goalTop, 17, goalBottom - goalTop);
+      ctx.strokeStyle = 'rgba(255,255,245,.55)'; ctx.lineWidth = 1;
+      for (let y = goalTop + 8; y < goalBottom; y += 10) { ctx.beginPath(); ctx.moveTo(goalX, y); ctx.lineTo(goalX + 17, y); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(goalX + 6, goalTop); ctx.lineTo(goalX + 6, goalBottom); ctx.moveTo(goalX + 12, goalTop); ctx.lineTo(goalX + 12, goalBottom); ctx.stroke();
+    }
+    ctx.fillStyle = '#fff9e9'; ctx.fillRect(centerX - 66, top - 23, 132, 16);
+    ctx.fillStyle = '#396349'; ctx.font = 'bold 8px "DM Sans",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('MEADOW SOCCER · F TO KICK', centerX, top - 15);
+    const light = .72 + (Math.sin(time * .004) + 1) * .12;
+    ctx.globalAlpha = light; ctx.fillStyle = '#fff1a4';
+    ctx.beginPath(); ctx.arc(centerX, centerY, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    drawSoccerBall(ctx, time);
+    ctx.restore();
+  }
+
+  function updateSoccerBall(dt) {
+    if (soccerBall.resetTimer > 0) {
+      soccerBall.resetTimer = Math.max(0, soccerBall.resetTimer - dt);
+      return;
+    }
+    if (Math.abs(soccerBall.vx) < 1 && Math.abs(soccerBall.vy) < 1) return;
+    const bounds = soccerBounds();
+    soccerBall.x += soccerBall.vx * dt; soccerBall.y += soccerBall.vy * dt;
+    const centerY = (bounds.top + bounds.bottom) / 2;
+    const goalOpening = soccerField.goalHalf - soccerBall.radius;
+    if (soccerBall.x - soccerBall.radius <= bounds.left) {
+      if (soccerBall.y >= centerY - goalOpening && soccerBall.y <= centerY + goalOpening) return scoreSoccerGoal();
+      soccerBall.x = bounds.left + soccerBall.radius; soccerBall.vx = Math.abs(soccerBall.vx) * .68;
+    } else if (soccerBall.x + soccerBall.radius >= bounds.right) {
+      if (soccerBall.y >= centerY - goalOpening && soccerBall.y <= centerY + goalOpening) return scoreSoccerGoal();
+      soccerBall.x = bounds.right - soccerBall.radius; soccerBall.vx = -Math.abs(soccerBall.vx) * .68;
+    }
+    if (soccerBall.y - soccerBall.radius <= bounds.top) {
+      soccerBall.y = bounds.top + soccerBall.radius; soccerBall.vy = Math.abs(soccerBall.vy) * .68;
+    } else if (soccerBall.y + soccerBall.radius >= bounds.bottom) {
+      soccerBall.y = bounds.bottom - soccerBall.radius; soccerBall.vy = -Math.abs(soccerBall.vy) * .68;
+    }
+    const friction = Math.pow(.994, dt * 60);
+    soccerBall.vx *= friction; soccerBall.vy *= friction;
+    if (Math.abs(soccerBall.vx) < 7) soccerBall.vx = 0;
+    if (Math.abs(soccerBall.vy) < 7) soccerBall.vy = 0;
+  }
+
+  function scoreSoccerGoal() {
+    soccerGoals++;
+    soccerBall.x = (soccerField.left + soccerField.right + 1) * world.size / 2;
+    soccerBall.y = (soccerField.top + soccerField.bottom + 1) * world.size / 2;
+    soccerBall.vx = 0; soccerBall.vy = 0; soccerBall.resetTimer = .65;
+    showToast(`GOAL! ${soccerGoals} ${soccerGoals === 1 ? 'goal' : 'goals'} scored!`);
+    if (soundOn) playNote(880, .28, .045);
+  }
+
+  function kickSoccerBall() {
+    if (!$('#playView').classList.contains('active') || !isPlayerOnSoccerField()) return;
+    if (!isSoccerBallInReach()) { showToast('Move closer to the ball before you kick!'); return; }
+    const vectors = { up: [0, -1], right: [1, 0], down: [0, 1], left: [-1, 0] };
+    const [dx, dy] = vectors[player.face] || vectors.down;
+    soccerBall.vx = dx * 420; soccerBall.vy = dy * 420;
+    showToast('Kick! Aim for either goal!');
+  }
+
+  function updateSoccerHud() {
+    const onField = isPlayerOnSoccerField();
+    const button = $('#soccerKickButton');
+    button.hidden = !onField;
+    button.disabled = !isSoccerBallInReach();
+    button.title = button.disabled ? 'Move close to the ball to kick' : 'Kick in the direction you are facing (F)';
+    if (onField) {
+      $('#enemyCount').textContent = `⚽ ${soccerGoals} ${soccerGoals === 1 ? 'goal' : 'goals'}`;
+      if (!soccerFieldWasActive) showToast('Soccer time! Get close to the ball and press F or Kick.');
+    } else if (soccerFieldWasActive) updateEnemyCount();
+    soccerFieldWasActive = onField;
+  }
+
   function drawHero(ctx, time) {
     const sx = player.x - cameraX + world.size / 2;
     const sy = player.y - cameraY + world.size / 2;
@@ -1077,6 +1214,7 @@
       drawGround(gameCtx, x, y, sx, sy, time);
       drawObstacle(gameCtx, x, y, sx, sy, time);
     }
+    drawSoccerField(gameCtx, time);
     drawWaterSlide(gameCtx, time);
     drawDanceParty(gameCtx, time);
     for (const idol of idolData) drawIdol(gameCtx, idol, time);
@@ -1395,6 +1533,8 @@
     lastTick = time;
     if ($('#playView').classList.contains('active')) {
       movePlayer(dt);
+      updateSoccerBall(dt);
+      updateSoccerHud();
       updateEnemies(dt);
       renderWorld(time);
       updatePartyMusic(time);
@@ -1414,6 +1554,9 @@
     }
     if (event.target.matches('input,textarea,select,[contenteditable="true"]')) return;
     const key = event.code;
+    if ($('#playView').classList.contains('active') && key === 'KeyF') {
+      event.preventDefault(); if (!event.repeat) kickSoccerBall(); return;
+    }
     if ($('#playView').classList.contains('active') && ['Space', 'ShiftLeft', 'ShiftRight'].includes(key)) {
       event.preventDefault(); startDash(); return;
     }
@@ -1440,12 +1583,16 @@
     activeBossId = null;
     nearbyIdolId = '';
     player.x = 56 * 32; player.y = 40 * 32; player.face = 'down'; player.inWater = false;
-    player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0; player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; enemies.length = 0;
+    player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0; player.partyDancing = false; player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; enemies.length = 0;
+    soccerBall.x = (soccerField.left + soccerField.right + 1) * world.size / 2; soccerBall.y = (soccerField.top + soccerField.bottom + 1) * world.size / 2;
+    soccerBall.vx = 0; soccerBall.vy = 0; soccerBall.resetTimer = 0; soccerGoals = 0; soccerFieldWasActive = false;
+    $('#soccerKickButton').hidden = true;
     lastBiome = ''; updateBiome('meadow'); pressed.clear();
     updateIdolProgress(); updateBossHud(); updateEnemyCount(); updateDashButton();
     showToast('Back in the sunny meadow.');
   });
   $('#dashButton').addEventListener('click', startDash);
+  $('#soccerKickButton').addEventListener('click', kickSoccerBall);
 
   // Optional sound is synthesized locally: a few gentle, short notes, with no downloaded audio.
   function playNote(frequency, duration, volume) {
