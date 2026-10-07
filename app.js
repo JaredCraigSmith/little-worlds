@@ -31,7 +31,7 @@
   const cropStage = $('#cropStage');
   const cropOverlay = $('#cropOverlay');
   const gameViewport = $('#gameViewport');
-  const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, slideTimer: 0, slideDX: 0, slideDY: 1, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
+  const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, slideTimer: 0, slideDX: 0, slideDY: 1, ridingSlide: false, slideProgress: 0, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
   const pressed = new Set();
   const enemies = [];
   const found = new Set(['meadow']);
@@ -726,6 +726,10 @@
     return n - Math.floor(n);
   }
   const world = { width: 112, height: 80, size: 32 };
+  const waterSlide = {
+    points: [[53, 34], [53, 35], [54, 36], [55, 37], [55, 38], [54, 39], [53, 40], [52, 41], [51, 42]]
+      .map(([tx, ty]) => ({ x: tx * world.size, y: ty * world.size }))
+  };
   function biomeAt(tx, ty) {
     const dx = (tx - 56) / 51, dy = (ty - 40) / 35;
     const edge = Math.sqrt(dx * dx + dy * dy);
@@ -744,6 +748,7 @@
     if (biome === 'water' || biome === 'beach') return null;
     if (Math.abs(tx - 56) < 2 && Math.abs(ty - 40) < 2) return null;
     if (idolData.some(idol => Math.abs(tx - idol.tx) <= 1 && Math.abs(ty - idol.ty) <= 1)) return null;
+    if (waterSlide.points.some(point => Math.abs(tx - Math.floor(point.x / world.size)) <= 1 && Math.abs(ty - Math.floor(point.y / world.size)) <= 1)) return null;
     const value = hash(tx, ty, 4);
     if (biome === 'forest' && value < .15) return { type: 'tree', biome };
     if (biome === 'snow' && value < .1) return { type: 'pine', biome };
@@ -831,6 +836,50 @@
     ctx.font = '20px "Apple Color Emoji","Segoe UI Emoji",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(idol.glyph, sx, sy - 3 + pulse * .35);
     ctx.fillStyle = '#fff9d8'; ctx.font = 'bold 8px "DM Sans",sans-serif'; ctx.fillText('✦', sx + 14, sy - 14 - pulse);
+    ctx.restore();
+  }
+
+  function traceWaterSlide(ctx, cameraX, cameraY) {
+    const points = waterSlide.points.map(point => ({ x: point.x - cameraX + world.size / 2, y: point.y - cameraY + world.size / 2 }));
+    ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length - 1; i++) {
+      const midpointX = (points[i].x + points[i + 1].x) / 2;
+      const midpointY = (points[i].y + points[i + 1].y) / 2;
+      ctx.quadraticCurveTo(points[i].x, points[i].y, midpointX, midpointY);
+    }
+    ctx.lineTo(points.at(-1).x, points.at(-1).y);
+    return points;
+  }
+
+  function drawWaterSlide(ctx, time) {
+    ctx.save();
+    let points = traceWaterSlide(ctx, cameraX, cameraY);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(48,72,58,.18)'; ctx.lineWidth = 39; ctx.stroke();
+    points = traceWaterSlide(ctx, cameraX, cameraY);
+    ctx.strokeStyle = '#778f7e'; ctx.lineWidth = 35; ctx.stroke();
+    points = traceWaterSlide(ctx, cameraX, cameraY);
+    ctx.strokeStyle = '#eee2b8'; ctx.lineWidth = 29; ctx.stroke();
+    points = traceWaterSlide(ctx, cameraX, cameraY);
+    ctx.strokeStyle = '#65bdc8'; ctx.lineWidth = 21; ctx.stroke();
+    points = traceWaterSlide(ctx, cameraX, cameraY);
+    ctx.setLineDash([7, 10]); ctx.strokeStyle = 'rgba(228,251,231,.78)'; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+
+    const start = points[0], end = points.at(-1);
+    ctx.fillStyle = '#9a7650'; ctx.fillRect(start.x - 18, start.y - 18, 36, 7);
+    ctx.fillStyle = '#d1ae72'; ctx.fillRect(start.x - 15, start.y - 17, 30, 3);
+    ctx.fillStyle = '#fffefa'; ctx.fillRect(start.x - 26, start.y - 36, 52, 14);
+    ctx.fillStyle = '#4d7257'; ctx.font = 'bold 8px "DM Sans",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('WHEE! ↓', start.x, start.y - 29);
+    const ripple = 11 + Math.sin(time * .006) * 2;
+    ctx.strokeStyle = 'rgba(233,255,232,.8)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(end.x, end.y + 3, ripple + 6, ripple * .42, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(end.x, end.y + 3, ripple, ripple * .3, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#f2ffe0';
+    for (let i = 0; i < 3; i++) {
+      const sparkle = time * .002 + i * 2.1;
+      ctx.beginPath(); ctx.arc(end.x + Math.cos(sparkle) * (12 + i * 3), end.y + Math.sin(sparkle) * 6, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.restore();
   }
 
@@ -971,6 +1020,7 @@
       drawGround(gameCtx, x, y, sx, sy, time);
       drawObstacle(gameCtx, x, y, sx, sy, time);
     }
+    drawWaterSlide(gameCtx, time);
     for (const idol of idolData) drawIdol(gameCtx, idol, time);
     for (const enemy of enemies) drawEnemy(gameCtx, enemy, time);
     drawHero(gameCtx, time);
@@ -1091,7 +1141,7 @@
     showToast(`${idol.boss} is your friend now! You found the ${idol.title}.`);
   }
   function startDash() {
-    if (!$('#playView').classList.contains('active') || player.dashCooldown > 0 || player.dashTimer > 0) return;
+    if (!$('#playView').classList.contains('active') || player.ridingSlide || player.dashCooldown > 0 || player.dashTimer > 0) return;
     let dx = 0, dy = 0;
     if (pressed.has('ArrowLeft') || pressed.has('KeyA')) dx--;
     if (pressed.has('ArrowRight') || pressed.has('KeyD')) dx++;
@@ -1113,10 +1163,10 @@
   function updateDashButton() {
     const button = $('#dashButton');
     const cooling = player.dashCooldown > 0 || player.dashTimer > 0;
-    button.disabled = cooling;
+    button.disabled = player.ridingSlide || cooling;
     button.classList.toggle('dashing', player.dashTimer > 0);
-    button.textContent = player.dashTimer > 0 ? '⚡ Go!' : cooling ? '⚡ …' : '⚡ Dash';
-    button.title = cooling ? 'Dash is recharging' : 'Dash in the direction you are facing';
+    button.textContent = player.ridingSlide ? '💦 Whee!' : player.dashTimer > 0 ? '⚡ Go!' : cooling ? '⚡ …' : '⚡ Dash';
+    button.title = player.ridingSlide ? 'Enjoy the ride!' : cooling ? 'Dash is recharging' : 'Dash in the direction you are facing';
   }
   function updateEnemies(dt) {
     for (const enemy of enemies) {
@@ -1154,8 +1204,53 @@
     else if (bossHits) showToast(`Dash! ${idolData.find(item => item.biome === activeBossId)?.boss} has ${enemies.find(enemy => enemy.role === 'boss')?.health ?? 0} hearts left.`);
     else showToast(bopped === 1 ? 'Boop! One minion ran off.' : `Boop! ${bopped} minions ran off.`);
   }
+  function waterSlidePointAt(distance) {
+    let remaining = distance;
+    for (let i = 0; i < waterSlide.points.length - 1; i++) {
+      const from = waterSlide.points[i], to = waterSlide.points[i + 1];
+      const dx = to.x - from.x, dy = to.y - from.y, length = Math.hypot(dx, dy);
+      if (remaining <= length || i === waterSlide.points.length - 2) {
+        const amount = Math.min(1, remaining / length);
+        return { x: from.x + dx * amount, y: from.y + dy * amount, dx: dx / length, dy: dy / length };
+      }
+      remaining -= length;
+    }
+    return { ...waterSlide.points.at(-1), dx: 0, dy: 1 };
+  }
+  function startWaterSlide() {
+    if (player.ridingSlide) return false;
+    const start = waterSlide.points[0];
+    if (Math.hypot(player.x - start.x, player.y - start.y) > 23) return false;
+    player.ridingSlide = true; player.slideProgress = 0; player.slideTimer = 0;
+    player.x = start.x; player.y = start.y; player.face = 'down'; player.moving = true;
+    played = true; $('#gameHint').classList.add('gone');
+    showToast('Hop on and wheee!');
+    return true;
+  }
+  function rideWaterSlide(dt) {
+    const totalLength = waterSlide.points.slice(1).reduce((sum, point, index) => {
+      const previous = waterSlide.points[index];
+      return sum + Math.hypot(point.x - previous.x, point.y - previous.y);
+    }, 0);
+    player.slideProgress = Math.min(totalLength, player.slideProgress + 300 * dt);
+    const point = waterSlidePointAt(player.slideProgress);
+    player.x = point.x; player.y = point.y; player.moving = true;
+    if (Math.abs(point.dx) > Math.abs(point.dy)) player.face = point.dx > 0 ? 'right' : 'left';
+    else player.face = point.dy > 0 ? 'down' : 'up';
+    frameTime += dt * 1000;
+    const nowInWater = biomeAt(Math.floor(player.x / world.size), Math.floor(player.y / world.size)) === 'water';
+    if (nowInWater !== player.inWater) player.inWater = nowInWater;
+    updateBiome(biomeAt(Math.floor(player.x / world.size), Math.floor(player.y / world.size)));
+    if (player.slideProgress >= totalLength) {
+      player.ridingSlide = false; player.inWater = true; player.slideTimer = .42;
+      player.slideDX = point.dx; player.slideDY = point.dy;
+      showToast('Splash landing! Keep exploring the pond.');
+    }
+    updateDashButton();
+  }
   function movePlayer(dt) {
     player.dashCooldown = Math.max(0, player.dashCooldown - dt);
+    if (player.ridingSlide) { rideWaterSlide(dt); return; }
     const dashing = player.dashTimer > 0;
     let dx = 0, dy = 0;
     if (pressed.has('ArrowLeft') || pressed.has('KeyA')) dx -= 1;
@@ -1191,6 +1286,7 @@
     const biome = biomeAt(Math.floor(player.x / 32), Math.floor(player.y / 32));
     updateBiome(biome);
     if (enteredWater) showToast('You slide into the water! Splash!');
+    if (!dashing && startWaterSlide()) { updateDashButton(); return; }
     checkIdolPickup();
     if (dashing) bopEnemies();
     if (player.dashTimer > 0) player.dashTimer = Math.max(0, player.dashTimer - dt);
@@ -1273,7 +1369,7 @@
     activeBossId = null;
     nearbyIdolId = '';
     player.x = 56 * 32; player.y = 40 * 32; player.face = 'down'; player.inWater = false;
-    player.slideTimer = 0; player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; enemies.length = 0;
+    player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0; player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; enemies.length = 0;
     lastBiome = ''; updateBiome('meadow'); pressed.clear();
     updateIdolProgress(); updateBossHud(); updateEnemyCount(); updateDashButton();
     showToast('Back in the sunny meadow.');
