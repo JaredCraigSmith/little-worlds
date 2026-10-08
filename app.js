@@ -33,7 +33,7 @@
   const gameViewport = $('#gameViewport');
   const maxPlayerHealth = 3;
   const playerHealthRegenDelay = 5, playerHealthRegenInterval = 4;
-  const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, health: maxPlayerHealth, damageCooldown: 0, healthRegenTimer: 0, partyDancing: false, slideTimer: 0, slideDX: 0, slideDY: 1, ridingSlide: false, slideProgress: 0, dolphinRideTimer: 0, sharkScareCooldown: 0, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
+  const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, health: maxPlayerHealth, damageCooldown: 0, healthRegenTimer: 0, partyDancing: false, slideTimer: 0, slideDX: 0, slideDY: 1, ridingSlide: false, slideProgress: 0, dolphinRideTimer: 0, sharkScareCooldown: 0, panicTimer: 0, panicDX: 1, panicDY: 0, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
   const pressed = new Set();
   const enemies = [];
   const found = new Set(['meadow']);
@@ -737,11 +737,10 @@
   const danceParty = { left: 79, right: 83, top: 39, bottom: 42 };
   const partyColors = ['#f37ca2', '#ffd36a', '#76d8c5', '#9b8bf3', '#a6dc72'];
   const soccerField = { left: 27, right: 35, top: 38, bottom: 42, goalHalf: 38 };
-  const dolphin = { x: 104 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
+  const dolphin = { x: 109 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
   const dolphinRideDuration = 10;
-  const shark = { x: 3 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
-  const sharkShore = { x: 7 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
-  const sharkFearRadius = 96;
+  const shark = { x: world.size + world.size / 2, y: 40 * world.size + world.size / 2, homeX: world.size + world.size / 2, homeY: 40 * world.size + world.size / 2, chasing: false };
+  const sharkFearRadius = 180;
   const soccerBall = {
     x: (soccerField.left + soccerField.right + 1) * world.size / 2,
     y: (soccerField.top + soccerField.bottom + 1) * world.size / 2,
@@ -1086,20 +1085,33 @@
 
   function updateShark(dt, time) {
     player.sharkScareCooldown = Math.max(0, player.sharkScareCooldown - dt);
-    if (player.sharkScareCooldown > 0) return;
     const position = sharkPosition(time);
     const playerX = player.x + world.size / 2, playerY = player.y + world.size / 2;
-    if (Math.hypot(playerX - position.x, playerY - position.y) >= sharkFearRadius) return;
-    if (!hurtPlayer('shark')) return;
-    player.x = sharkShore.x - world.size / 2; player.y = sharkShore.y - world.size / 2;
-    player.face = 'right'; player.inWater = false; player.moving = false;
-    player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0;
-    player.dolphinRideTimer = 0; player.partyDancing = false;
-    player.dashTimer = 0; player.dashCooldown = 0; player.sharkScareCooldown = 1.4;
-    pressed.clear();
-    updateBiome(biomeAt(Math.floor(player.x / world.size), Math.floor(player.y / world.size)));
-    updateDashButton(); updateDolphinHud();
-    showToast('Shark! It scared you back onto the west shore.');
+    const playerInWater = biomeAt(Math.floor(player.x / world.size), Math.floor(player.y / world.size)) === 'water';
+    if (shark.chasing && !playerInWater && player.panicTimer <= 0) shark.chasing = false;
+    if (!shark.chasing && playerInWater && player.sharkScareCooldown <= 0 && Math.hypot(playerX - position.x, playerY - position.y) < sharkFearRadius) {
+      shark.chasing = true;
+      player.panicTimer = 4;
+      player.panicDX = 1; player.panicDY = 0; player.face = 'right';
+      player.dashTimer = 0; player.dashCooldown = 0; player.dolphinRideTimer = 0; player.sharkScareCooldown = 2;
+      pressed.clear();
+      updateDashButton(); updateDolphinHud();
+      showToast('A shark is chasing you! Run to the west shore!');
+    }
+
+    const targetX = shark.chasing ? playerX : shark.homeX;
+    const targetY = shark.chasing ? playerY : shark.homeY;
+    const dx = targetX - shark.x, dy = targetY - shark.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < 1) return;
+    const step = Math.min((shark.chasing ? 145 : 70) * dt, distance);
+    const candidates = [
+      { x: shark.x + dx / distance * step, y: shark.y + dy / distance * step },
+      { x: shark.x + Math.sign(dx) * Math.min(step, Math.abs(dx)), y: shark.y },
+      { x: shark.x, y: shark.y + Math.sign(dy) * Math.min(step, Math.abs(dy)) }
+    ];
+    const waterPosition = candidates.find(point => biomeAt(Math.floor(point.x / world.size), Math.floor(point.y / world.size)) === 'water');
+    if (waterPosition) { shark.x = waterPosition.x; shark.y = waterPosition.y; }
   }
 
   function updateSoccerBall(dt) {
@@ -1169,7 +1181,7 @@
   }
 
   function startDolphinRide() {
-    if (!$('#playView').classList.contains('active') || player.ridingSlide || player.dolphinRideTimer > 0 || !isDolphinInReach()) return;
+    if (!$('#playView').classList.contains('active') || player.ridingSlide || player.panicTimer > 0 || player.dolphinRideTimer > 0 || !isDolphinInReach()) return;
     player.x = dolphin.x - world.size / 2;
     player.y = dolphin.y - world.size / 2;
     player.dolphinRideTimer = dolphinRideDuration;
@@ -1190,7 +1202,7 @@
     button.title = riding ? 'The dolphin ride ends after 10 seconds' : 'Ride the fast dolphin for 10 seconds (E)';
   }
 
-  function hurtPlayer(source = 'enemy') {
+  function hurtPlayer() {
     if (player.health <= 0) return false;
     if (player.damageCooldown > 0 || player.dashTimer > 0) return true;
     player.health = Math.max(0, player.health - 1);
@@ -1201,7 +1213,7 @@
       resetGame('You ran out of hearts. Back in the sunny meadow!');
       return false;
     }
-    showToast(source === 'shark' ? `The shark nipped you! ${player.health} hearts left.` : `Ouch! ${player.health} hearts left.`);
+    showToast(`Ouch! ${player.health} hearts left.`);
     return true;
   }
 
@@ -1263,6 +1275,13 @@
         ctx.fillStyle = partyColors[i];
         ctx.fillText(i % 2 ? '♪' : '✦', sx + Math.cos(angle) * 22, sy - 7 + Math.sin(angle) * 15);
       }
+      ctx.restore();
+    }
+    if (player.panicTimer > 0) {
+      const markerY = sy - 37 + Math.sin(time * .025) * 2;
+      ctx.save(); ctx.fillStyle = '#fff3cf'; ctx.strokeStyle = '#a95c45'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(sx, markerY, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#a34837'; ctx.font = '900 14px Nunito,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('!', sx, markerY);
       ctx.restore();
     }
     ctx.restore();
@@ -1492,7 +1511,7 @@
     showToast(`${idol.boss} is your friend now! You found the ${idol.title}.`);
   }
   function startDash() {
-    if (!$('#playView').classList.contains('active') || player.ridingSlide || player.dolphinRideTimer > 0 || player.dashCooldown > 0 || player.dashTimer > 0) return;
+    if (!$('#playView').classList.contains('active') || player.ridingSlide || player.panicTimer > 0 || player.dolphinRideTimer > 0 || player.dashCooldown > 0 || player.dashTimer > 0) return;
     let dx = 0, dy = 0;
     if (pressed.has('ArrowLeft') || pressed.has('KeyA')) dx--;
     if (pressed.has('ArrowRight') || pressed.has('KeyD')) dx++;
@@ -1514,10 +1533,11 @@
   function updateDashButton() {
     const button = $('#dashButton');
     const cooling = player.dashCooldown > 0 || player.dashTimer > 0;
-    button.disabled = player.ridingSlide || player.dolphinRideTimer > 0 || cooling;
+    button.disabled = player.ridingSlide || player.panicTimer > 0 || player.dolphinRideTimer > 0 || cooling;
     button.classList.toggle('dashing', player.dashTimer > 0);
-    button.textContent = player.ridingSlide ? '💦 Whee!' : player.dolphinRideTimer > 0 ? '🐬 Riding' : player.dashTimer > 0 ? '⚡ Go!' : cooling ? '⚡ …' : '⚡ Dash';
-    button.title = player.ridingSlide || player.dolphinRideTimer > 0 ? 'Enjoy the ride!' : cooling ? 'Dash is recharging' : 'Dash in the direction you are facing';
+    button.classList.toggle('panic-run', player.panicTimer > 0);
+    button.textContent = player.panicTimer > 0 ? '❗ Run!' : player.ridingSlide ? '💦 Whee!' : player.dolphinRideTimer > 0 ? '🐬 Riding' : player.dashTimer > 0 ? '⚡ Go!' : cooling ? '⚡ …' : '⚡ Dash';
+    button.title = player.panicTimer > 0 ? 'Run to shore!' : player.ridingSlide || player.dolphinRideTimer > 0 ? 'Enjoy the ride!' : cooling ? 'Dash is recharging' : 'Dash in the direction you are facing';
   }
   function updateEnemies(dt) {
     for (const enemy of enemies) {
@@ -1527,7 +1547,7 @@
       const dx = player.x - enemy.x, dy = player.y - enemy.y;
       const distance = Math.hypot(dx, dy);
       if (distance < 30) {
-        if (!hurtPlayer('enemy')) return;
+        if (!hurtPlayer()) return;
         continue;
       }
       const step = Math.min(enemy.speed * dt, distance - 19);
@@ -1560,7 +1580,7 @@
   }
   function updatePartyDance() {
     const tx = Math.floor(player.x / world.size), ty = Math.floor(player.y / world.size);
-    const dancing = isDancePartyTile(tx, ty) && !player.inWater && !player.ridingSlide && player.dolphinRideTimer <= 0 && player.dashTimer <= 0;
+    const dancing = isDancePartyTile(tx, ty) && !player.inWater && !player.ridingSlide && player.dolphinRideTimer <= 0 && player.panicTimer <= 0 && player.dashTimer <= 0;
     if (dancing === player.partyDancing) return;
     player.partyDancing = dancing;
     if (dancing) {
@@ -1582,7 +1602,7 @@
     return { ...waterSlide.points.at(-1), dx: 0, dy: 1 };
   }
   function startWaterSlide() {
-    if (player.ridingSlide || player.dolphinRideTimer > 0) return false;
+    if (player.ridingSlide || player.panicTimer > 0 || player.dolphinRideTimer > 0) return false;
     const start = waterSlide.points[0];
     if (Math.hypot(player.x - start.x, player.y - start.y) > 23) return false;
     player.ridingSlide = true; player.slideProgress = 0; player.slideTimer = 0;
@@ -1616,18 +1636,23 @@
     player.dashCooldown = Math.max(0, player.dashCooldown - dt);
     player.damageCooldown = Math.max(0, player.damageCooldown - dt);
     updatePlayerHealthRegeneration(dt);
+    player.panicTimer = Math.max(0, player.panicTimer - dt);
     if (player.ridingSlide) { rideWaterSlide(dt); return; }
     if (player.dolphinRideTimer > 0) {
       player.dolphinRideTimer = Math.max(0, player.dolphinRideTimer - dt);
       if (player.dolphinRideTimer === 0) showToast('Dolphin ride finished. Find it on the east shore for another ride!');
     }
     updatePartyDance();
-    const dashing = player.dashTimer > 0;
+    const panicking = player.panicTimer > 0;
+    const dashing = !panicking && player.dashTimer > 0;
     let dx = 0, dy = 0;
-    if (pressed.has('ArrowLeft') || pressed.has('KeyA')) dx -= 1;
-    if (pressed.has('ArrowRight') || pressed.has('KeyD')) dx += 1;
-    if (pressed.has('ArrowUp') || pressed.has('KeyW')) dy -= 1;
-    if (pressed.has('ArrowDown') || pressed.has('KeyS')) dy += 1;
+    if (panicking) { dx = player.panicDX; dy = player.panicDY; }
+    else {
+      if (pressed.has('ArrowLeft') || pressed.has('KeyA')) dx -= 1;
+      if (pressed.has('ArrowRight') || pressed.has('KeyD')) dx += 1;
+      if (pressed.has('ArrowUp') || pressed.has('KeyW')) dy -= 1;
+      if (pressed.has('ArrowDown') || pressed.has('KeyS')) dy += 1;
+    }
     const hasInput = !!(dx || dy);
     if (dashing) { dx = player.dashDX; dy = player.dashDY; }
     else if (!hasInput && player.inWater && player.slideTimer > 0) { dx = player.slideDX; dy = player.slideDY; }
@@ -1637,7 +1662,7 @@
     const tx = dx * norm, ty = dy * norm;
     if (Math.abs(dx) > Math.abs(dy)) player.face = dx > 0 ? 'right' : 'left';
     else if (dy) player.face = dy > 0 ? 'down' : 'up';
-    const speed = dashing ? 365 : player.dolphinRideTimer > 0 ? 330 : player.slideTimer > 0 ? 175 : player.inWater ? 90 : 115;
+    const speed = panicking ? 240 : dashing ? 365 : player.dolphinRideTimer > 0 ? 330 : player.slideTimer > 0 ? 175 : player.inWater ? 90 : 115;
     const amount = speed * dt;
     const nextX = player.x + tx * amount, nextY = player.y + ty * amount;
     if (!collides(nextX, player.y)) player.x = clamp(nextX, 15, world.width * world.size - 15);
@@ -1658,7 +1683,11 @@
     const biome = biomeAt(Math.floor(player.x / 32), Math.floor(player.y / 32));
     updateBiome(biome);
     if (enteredWater) showToast('You slide into the water! Splash!');
-    if (!dashing && player.dolphinRideTimer <= 0 && startWaterSlide()) { updateDashButton(); return; }
+    if (panicking && !nextWater) {
+      player.panicTimer = 0; player.sharkScareCooldown = 1.5; pressed.clear();
+      showToast('You made it safely to shore!');
+    }
+    if (!dashing && player.panicTimer <= 0 && player.dolphinRideTimer <= 0 && startWaterSlide()) { updateDashButton(); return; }
     checkIdolPickup();
     if (dashing) bopEnemies();
     if (player.dashTimer > 0) player.dashTimer = Math.max(0, player.dashTimer - dt);
@@ -1753,7 +1782,8 @@
     nearbyIdolId = '';
     player.x = 56 * 32; player.y = 40 * 32; player.face = 'down'; player.moving = false; player.inWater = false;
     player.health = maxPlayerHealth; player.damageCooldown = 0; player.healthRegenTimer = 0;
-    player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0; player.dolphinRideTimer = 0; player.sharkScareCooldown = 0; player.partyDancing = false; player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; enemies.length = 0;
+    player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0; player.dolphinRideTimer = 0; player.sharkScareCooldown = 0; player.panicTimer = 0; player.partyDancing = false; player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; enemies.length = 0;
+    shark.chasing = false; shark.x = shark.homeX; shark.y = shark.homeY;
     soccerBall.x = (soccerField.left + soccerField.right + 1) * world.size / 2; soccerBall.y = (soccerField.top + soccerField.bottom + 1) * world.size / 2;
     soccerBall.vx = 0; soccerBall.vy = 0; soccerBall.resetTimer = 0; soccerGoals = 0; soccerFieldWasActive = false;
     $('#soccerKickButton').hidden = true;

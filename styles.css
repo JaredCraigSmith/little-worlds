@@ -62,4 +62,5 @@
 .player-health small{color:#829087;font-size:7px;font-weight:800;letter-spacing:.7px}
 .player-health span{color:#d66e67;font-size:13px;line-height:1;letter-spacing:1px;white-space:nowrap}
 .player-health.low-health{border-color:#e9aa91;background:rgba(255,245,235,.96)}
+.dash-button.panic-run:disabled{opacity:1;background:#fff0ab;color:#9b533d;border-color:#ffe1a4}
 @media(max-width:760px){.player-health{top:48px;left:9px;padding:4px 7px}.player-health span{font-size:12px}}
