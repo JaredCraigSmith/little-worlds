@@ -75,6 +75,16 @@
   let toastTimer = 0;
   let played = false;
   let soundOn = false;
+  const musicTracks = {
+    main: new Audio('assets/music/seeking-the-glowing-idol.mp3'),
+    finalBoss: new Audio('assets/music/three-hearts-left.mp3')
+  };
+  let selectedMusicTrack = '';
+  for (const track of Object.values(musicTracks)) {
+    track.loop = true;
+    track.preload = 'none';
+    track.volume = .42;
+  }
   let audioContext = null;
   let waveTimer = 0;
   let randomSoundTimer = 0;
@@ -1928,6 +1938,7 @@
   function startFinalBossFight() {
     if (activeBossId || defeatedBosses.size !== idolData.length || finalBossDefeated) return;
     activeBossId = FINAL_BOSS_ID;
+    syncMusicForGameState();
     enemies.length = 0;
     for (let i = 0; i < idolData.length; i++) {
       const guardian = idolData[i];
@@ -2014,6 +2025,7 @@
   function finishFinalBossFight() {
     finalBossDefeated = true;
     activeBossId = null; nearbyIdolId = ''; enemies.length = 0;
+    syncMusicForGameState();
     const existing = safeLoad();
     safeSave({ ...existing, finalBossDefeated: true });
     updateIdolProgress(); updateBossHud(); updateEnemyCount();
@@ -2394,6 +2406,7 @@
     if (activeBossId) awakenedIdols.delete(activeBossId);
     finalCinematicTimer = 0; finalCinematicPhase = -1; $('#finalCinematic').hidden = true;
     activeBossId = null;
+    syncMusicForGameState();
     nearbyIdolId = '';
     player.x = 56 * 32; player.y = 40 * 32; player.face = 'down'; player.moving = false; player.inWater = false;
     player.health = maxPlayerHealth; player.damageCooldown = 0; player.healthRegenTimer = 0;
@@ -2457,11 +2470,27 @@
     playNote(melody[partyNoteIndex++ % melody.length], .18, .027);
     partyNoteTimer = time + 240;
   }
+  function syncMusicForGameState() {
+    const nextTrackName = activeBossId === FINAL_BOSS_ID ? 'finalBoss' : 'main';
+    if (selectedMusicTrack !== nextTrackName) {
+      for (const [name, track] of Object.entries(musicTracks)) {
+        if (name === nextTrackName) continue;
+        track.pause();
+        if (track.readyState > 0) track.currentTime = 0;
+      }
+      selectedMusicTrack = nextTrackName;
+    }
+    const track = musicTracks[nextTrackName];
+    if (!soundOn) { track.pause(); return; }
+    const playback = track.play();
+    if (playback?.catch) playback.catch(() => {});
+  }
   $('#soundToggle').addEventListener('click', () => {
     soundOn = !soundOn;
     $('#soundToggle').classList.toggle('on', soundOn);
-    $('#soundToggle').title = soundOn ? 'Turn off gentle sounds' : 'Turn on gentle sounds';
-    $('#soundToggle').setAttribute('aria-label', soundOn ? 'Turn off gentle sounds' : 'Turn on gentle sounds');
+    $('#soundToggle').title = soundOn ? 'Turn off music and sounds' : 'Turn on music and sounds';
+    $('#soundToggle').setAttribute('aria-label', soundOn ? 'Turn off music and sounds' : 'Turn on music and sounds');
+    syncMusicForGameState();
     if (soundOn) { playNote(660, .22, .025); randomSoundTimer = performance.now() + 4200; }
   });
 
