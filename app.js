@@ -21,6 +21,8 @@
     { biome: 'desert', tx: 76, ty: 34, glyph: '☀️', title: 'Sunstone Idol', boss: 'Suncurl', bossTitle: 'giant sand serpent', bossType: 'sand-serpent', minions: 'sand skitters', minionCount: 3, palette: ['#d58e4f', '#f1cf73', '#9b704b'] },
     { biome: 'water', tx: 50, ty: 45, glyph: '💎', title: 'Tideglass Idol', boss: 'Coralback', bossTitle: 'tidepool kraken', bossType: 'tide-kraken', minions: 'bubble sprites', minionCount: 4, palette: ['#648fbc', '#f3a7a0', '#90d3c8'] }
   ];
+  const FINAL_BOSS_ID = 'final';
+  const finalBossData = { tx: 56, ty: 40, glyph: '🌟', boss: 'Island Titan', bossTitle: 'ancient island guardian', bossType: 'island-titan', palette: ['#75658e', '#f1cb6c', '#4d4561'] };
 
   const gameCanvas = $('#gameCanvas');
   const gameCtx = gameCanvas.getContext('2d');
@@ -33,12 +35,17 @@
   const gameViewport = $('#gameViewport');
   const maxPlayerHealth = 3;
   const playerHealthRegenDelay = 5, playerHealthRegenInterval = 4;
+  const finalCinematicDuration = 4.8;
   const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, health: maxPlayerHealth, damageCooldown: 0, healthRegenTimer: 0, partyDancing: false, slideTimer: 0, slideDX: 0, slideDY: 1, ridingSlide: false, slideProgress: 0, dolphinRideTimer: 0, sharkScareCooldown: 0, panicTimer: 0, panicDX: 1, panicDY: 0, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
   const pressed = new Set();
   const enemies = [];
   const found = new Set(['meadow']);
   const defeatedBosses = new Set();
   const awakenedIdols = new Set();
+  const confettiParticles = [];
+  let finalBossDefeated = false;
+  let finalCinematicTimer = 0;
+  let finalCinematicPhase = -1;
   let activeBossId = null;
   let nearbyIdolId = '';
   let spriteFrames = null;
@@ -152,6 +159,7 @@
     const data = safeLoad();
     defeatedBosses.clear();
     if (Array.isArray(data.defeatedBosses)) data.defeatedBosses.filter(id => idolData.some(idol => idol.biome === id)).forEach(id => defeatedBosses.add(id));
+    finalBossDefeated = data.finalBossDefeated === true;
     if (data.name) $('#heroName').value = data.name;
     if (Array.isArray(data.baseFrames) && [12, 16].includes(data.baseFrames.length)) {
       // Older saves include a hand-drawn left row; the right row now supplies it by mirroring.
@@ -166,6 +174,7 @@
     updateBackgroundControls();
     updatePortrait();
     updateIdolProgress();
+    $('#victoryBanner').hidden = !finalBossDefeated;
   }
 
   function updatePortrait() {
@@ -737,9 +746,9 @@
   const danceParty = { left: 79, right: 83, top: 39, bottom: 42 };
   const partyColors = ['#f37ca2', '#ffd36a', '#76d8c5', '#9b8bf3', '#a6dc72'];
   const soccerField = { left: 27, right: 35, top: 38, bottom: 42, goalHalf: 38 };
-  const dolphin = { x: 109 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
+  const dolphin = { x: 110 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
   const dolphinRideDuration = 10;
-  const shark = { x: world.size + world.size / 2, y: 40 * world.size + world.size / 2, homeX: world.size + world.size / 2, homeY: 40 * world.size + world.size / 2, chasing: false };
+  const shark = { x: world.size * .875, y: 40 * world.size + world.size / 2, homeX: world.size * .875, homeY: 40 * world.size + world.size / 2, chasing: false };
   const sharkFearRadius = 180;
   const soccerBall = {
     x: (soccerField.left + soccerField.right + 1) * world.size / 2,
@@ -1031,6 +1040,24 @@
     ctx.restore();
   }
 
+  function drawFinalIdol(ctx, time) {
+    if (defeatedBosses.size !== idolData.length || finalBossDefeated || activeBossId === FINAL_BOSS_ID) return;
+    const sx = finalBossData.tx * world.size - cameraX + world.size / 2;
+    const sy = finalBossData.ty * world.size - cameraY + world.size / 2;
+    if (sx < -56 || sy < -64 || sx > gameWidth + 56 || sy > gameHeight + 64) return;
+    const pulse = Math.sin(time * .003) * 4;
+    ctx.save();
+    ctx.fillStyle = 'rgba(53,79,61,.24)'; ctx.beginPath(); ctx.ellipse(sx, sy + 18, 30, 10, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = `rgba(255,238,157,${.48 + (Math.sin(time * .0025) + 1) * .16})`;
+    ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx, sy, 34 + pulse, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,229,.82)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, 25 - pulse * .35, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,228,133,.35)'; ctx.beginPath(); ctx.ellipse(sx, sy + 10, 23, 11, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.font = '42px "Apple Color Emoji","Segoe UI Emoji",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(finalBossData.glyph, sx, sy - 4 + pulse * .3);
+    ctx.fillStyle = '#fff9d8'; ctx.font = '900 9px "DM Sans",sans-serif'; ctx.fillText('GIANT IDOL', sx, sy + 39);
+    ctx.restore();
+  }
+
   function drawDolphin(ctx, time) {
     const riding = player.dolphinRideTimer > 0;
     const worldX = riding ? player.x + world.size / 2 : dolphin.x;
@@ -1291,9 +1318,11 @@
   function drawEnemy(ctx, enemy, time) {
     const sx = enemy.x - cameraX + world.size / 2;
     const sy = enemy.y - cameraY + world.size / 2;
-    if (enemy.role === 'boss') return drawBoss(ctx, enemy, time, sx, sy);
+    if (enemy.role === 'boss' || enemy.guardianForm) return drawBoss(ctx, enemy, time, sx, sy);
     if (sx < -35 || sy < -35 || sx > gameWidth + 35 || sy > gameHeight + 35) return;
     const bob = Math.sin(time * .006 + enemy.phase) * 1.5;
+    ctx.save();
+    if (enemy.knockbackTimer > 0) { ctx.translate(sx, sy); ctx.rotate(enemy.knockbackAngle || 0); ctx.translate(-sx, -sy); }
     ctx.fillStyle = 'rgba(45,74,55,.18)'; ctx.beginPath(); ctx.ellipse(sx, sy + 8, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = enemy.palette[enemy.color % enemy.palette.length];
     ctx.beginPath(); ctx.ellipse(sx, sy + bob, 10, 9, 0, 0, Math.PI * 2); ctx.fill();
@@ -1302,13 +1331,21 @@
     ctx.fillStyle = '#fff7e9'; ctx.fillRect(sx - 5, sy - 2 + bob, 3, 4); ctx.fillRect(sx + 2, sy - 2 + bob, 3, 4);
     ctx.fillStyle = '#38473d'; ctx.fillRect(sx - 4, sy - 1 + bob, 2, 3); ctx.fillRect(sx + 3, sy - 1 + bob, 2, 3);
     ctx.strokeStyle = 'rgba(73,67,67,.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(sx, sy + 3 + bob, 2, .15, Math.PI - .15); ctx.stroke();
+    ctx.restore();
   }
 
   function drawBoss(ctx, enemy, time, sx, sy) {
-    if (sx < -70 || sy < -75 || sx > gameWidth + 70 || sy > gameHeight + 75) return;
+    const introEase = enemy.introProgress === undefined ? 1 : enemy.introProgress * enemy.introProgress * (3 - 2 * enemy.introProgress);
+    const scale = (enemy.bossScale || 1) * (.08 + .92 * introEase), margin = 70 * scale;
+    if (sx < -margin || sy < -margin - 5 || sx > gameWidth + margin || sy > gameHeight + margin + 5) return;
     const [body, accent, shadow] = enemy.palette;
     const bob = Math.sin(time * .004 + enemy.phase) * 2;
     ctx.save();
+    if (scale !== 1 || enemy.knockbackTimer > 0) {
+      ctx.translate(sx, sy);
+      if (enemy.knockbackTimer > 0) ctx.rotate(enemy.knockbackAngle || 0);
+      ctx.scale(scale, scale); ctx.translate(-sx, -sy);
+    }
     ctx.fillStyle = 'rgba(45,74,55,.2)'; ctx.beginPath(); ctx.ellipse(sx, sy + 18, 27, 8, 0, 0, Math.PI * 2); ctx.fill();
     if (enemy.bossType === 'flower-snake' || enemy.bossType === 'sand-serpent') {
       for (let i = 3; i >= 1; i--) {
@@ -1357,21 +1394,60 @@
       ctx.fillStyle = '#34463d'; ctx.fillRect(sx - 7, sy, 3, 4); ctx.fillRect(sx + 7, sy, 3, 4);
     }
     if (enemy.hitFlash > 0) { ctx.fillStyle = `rgba(255,255,255,${Math.min(.6, enemy.hitFlash * 2)})`; ctx.beginPath(); ctx.arc(sx, sy + bob, 24, 0, Math.PI * 2); ctx.fill(); }
-    const healthRatio = clamp(enemy.health / enemy.maxHealth, 0, 1);
-    const healthTop = sy - 38 + bob;
-    ctx.fillStyle = 'rgba(39,54,43,.72)'; ctx.fillRect(sx - 25, healthTop - 1, 50, 8);
-    ctx.fillStyle = '#eadfd2'; ctx.fillRect(sx - 22, healthTop + 1, 44, 4);
-    ctx.fillStyle = healthRatio > .5 ? '#79aa69' : healthRatio > .25 ? '#e3b65b' : '#df786b';
-    ctx.fillRect(sx - 22, healthTop + 1, 44 * healthRatio, 4);
-    ctx.fillStyle = 'rgba(255,255,255,.75)';
-    for (let heart = 1; heart < enemy.maxHealth; heart++) ctx.fillRect(sx - 22 + 44 * heart / enemy.maxHealth - .5, healthTop + 1, 1, 4);
+    if (enemy.role === 'boss') {
+      const healthRatio = clamp(enemy.health / enemy.maxHealth, 0, 1);
+      const healthTop = sy - 38 + bob;
+      ctx.fillStyle = 'rgba(39,54,43,.72)'; ctx.fillRect(sx - 25, healthTop - 1, 50, 8);
+      ctx.fillStyle = '#eadfd2'; ctx.fillRect(sx - 22, healthTop + 1, 44, 4);
+      ctx.fillStyle = healthRatio > .5 ? '#79aa69' : healthRatio > .25 ? '#e3b65b' : '#df786b';
+      ctx.fillRect(sx - 22, healthTop + 1, 44 * healthRatio, 4);
+      ctx.fillStyle = 'rgba(255,255,255,.75)';
+      for (let heart = 1; heart < enemy.maxHealth; heart++) ctx.fillRect(sx - 22 + 44 * heart / enemy.maxHealth - .5, healthTop + 1, 1, 4);
+    }
+    ctx.restore();
+  }
+
+  function launchConfetti() {
+    confettiParticles.length = 0;
+    const colors = ['#f47880', '#ffd568', '#73c8a0', '#79b9e8', '#ac8de0', '#fff2ae'];
+    for (let i = 0; i < 180; i++) {
+      const angle = -Math.PI / 2 + (Math.random() - .5) * 2.15;
+      const speed = 150 + Math.random() * 390;
+      confettiParticles.push({
+        x: gameWidth / 2 + (Math.random() - .5) * 48, y: gameHeight * .68,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 80,
+        size: 4 + Math.random() * 5, rotation: Math.random() * Math.PI,
+        spin: (Math.random() - .5) * 11, life: 3.6 + Math.random() * 1.6,
+        color: colors[i % colors.length]
+      });
+    }
+  }
+  function updateConfetti(dt) {
+    for (let i = confettiParticles.length - 1; i >= 0; i--) {
+      const piece = confettiParticles[i];
+      piece.life -= dt; piece.x += piece.vx * dt; piece.y += piece.vy * dt;
+      piece.vy += 520 * dt; piece.vx *= .995; piece.rotation += piece.spin * dt;
+      if (piece.life <= 0 || piece.y > gameHeight + 20) confettiParticles.splice(i, 1);
+    }
+  }
+  function drawConfetti(ctx) {
+    if (!confettiParticles.length) return;
+    ctx.save();
+    for (const piece of confettiParticles) {
+      ctx.globalAlpha = Math.min(1, piece.life / .5);
+      ctx.fillStyle = piece.color; ctx.translate(piece.x, piece.y); ctx.rotate(piece.rotation);
+      ctx.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size * .7);
+      ctx.rotate(-piece.rotation); ctx.translate(-piece.x, -piece.y);
+    }
     ctx.restore();
   }
 
   function renderWorld(time) {
     if (!gameWidth || !gameHeight) return;
-    cameraX = player.x - gameWidth / 2;
-    cameraY = player.y - gameHeight / 2;
+    const cinematicElapsed = finalCinematicTimer > 0 ? finalCinematicDuration - finalCinematicTimer : 0;
+    const shake = finalCinematicTimer > 0 ? Math.min(3.5, cinematicElapsed * 1.4) : 0;
+    cameraX = player.x - gameWidth / 2 + Math.sin(time * .061) * shake;
+    cameraY = player.y - gameHeight / 2 + Math.cos(time * .053) * shake * .6;
     const left = Math.floor(cameraX / world.size) - 1;
     const top = Math.floor(cameraY / world.size) - 1;
     const cols = Math.ceil(gameWidth / world.size) + 3;
@@ -1387,10 +1463,12 @@
     drawWaterSlide(gameCtx, time);
     drawDanceParty(gameCtx, time);
     for (const idol of idolData) drawIdol(gameCtx, idol, time);
+    drawFinalIdol(gameCtx, time);
     for (const enemy of enemies) drawEnemy(gameCtx, enemy, time);
     drawDolphin(gameCtx, time);
     drawShark(gameCtx, time);
     drawHero(gameCtx, time);
+    drawConfetti(gameCtx);
   }
 
   function resizeGame() {
@@ -1419,11 +1497,13 @@
   }
   function updateEnemyCount() {
     if (!activeBossId) {
-      $('#enemyCount').textContent = defeatedBosses.size ? `${defeatedBosses.size}/5 guardians befriended` : 'Find a glowing idol';
+      $('#enemyCount').textContent = finalBossDefeated ? 'You won! The island is safe.' : defeatedBosses.size === idolData.length ? 'A giant idol waits at the island center' : defeatedBosses.size ? `${defeatedBosses.size}/5 guardians befriended` : 'Find a glowing idol';
       return;
     }
     const minions = enemies.filter(enemy => enemy.role === 'minion').length;
-    $('#enemyCount').textContent = `${minions} minion${minions === 1 ? '' : 's'} left · dash to bop`;
+    $('#enemyCount').textContent = activeBossId === FINAL_BOSS_ID
+      ? `${minions} guardian minion${minions === 1 ? '' : 's'} left · dash to bop`
+      : `${minions} minion${minions === 1 ? '' : 's'} left · dash to bop`;
   }
   function updateIdolProgress() {
     const count = defeatedBosses.size;
@@ -1442,12 +1522,13 @@
   }
   function updateBossHud() {
     const hud = $('#bossStatus');
-    const idol = idolData.find(item => item.biome === activeBossId);
+    const finalFight = activeBossId === FINAL_BOSS_ID;
+    const idol = finalFight ? finalBossData : idolData.find(item => item.biome === activeBossId);
     const boss = enemies.find(enemy => enemy.role === 'boss');
     if (!idol) { hud.hidden = true; return; }
     hud.hidden = false;
     $('#bossEmoji').textContent = idol.glyph;
-    $('#bossBiome').textContent = `${biomeData[idol.biome].title} · ${idol.bossTitle}`;
+    $('#bossBiome').textContent = finalFight ? 'FINAL CHALLENGE · ISLAND CENTER' : `${biomeData[idol.biome].title} · ${idol.bossTitle}`;
     $('#bossName').textContent = boss ? idol.boss : `${idol.boss} is nearly a friend`;
     if (boss) {
       $('#bossHealthBar').style.width = `${Math.max(0, boss.health / boss.maxHealth * 100)}%`;
@@ -1456,7 +1537,7 @@
       $('#bossHealthBar').setAttribute('aria-valuemax', boss.maxHealth);
     } else {
       $('#bossHealthBar').style.width = '0%';
-      $('#bossHealthLabel').textContent = 'Guardian nearly befriended';
+      $('#bossHealthLabel').textContent = finalFight ? 'Island guardian nearly defeated' : 'Guardian nearly befriended';
       $('#bossHealthBar').setAttribute('aria-valuenow', '0');
     }
   }
@@ -1485,8 +1566,68 @@
     updateIdolProgress(); updateBossHud(); updateEnemyCount();
     showToast(`${idol.title} glows! ${idol.boss} and its ${idol.minions} are here. Dash to befriend them!`);
   }
+  function startFinalBossFight() {
+    if (activeBossId || defeatedBosses.size !== idolData.length || finalBossDefeated) return;
+    activeBossId = FINAL_BOSS_ID;
+    enemies.length = 0;
+    for (let i = 0; i < idolData.length; i++) {
+      const guardian = idolData[i];
+      const position = spawnPosition(i, idolData.length, 112 + i % 2 * 20);
+      enemies.push({ ...position, role: 'minion', guardianForm: true, bossId: guardian.biome, bossType: guardian.bossType, bossScale: .58, palette: guardian.palette, color: i, phase: Math.random() * 6, speed: 38 });
+    }
+    const bossPosition = spawnPosition(idolData.length, idolData.length + 1, 205);
+    enemies.push({ ...bossPosition, role: 'boss', bossId: FINAL_BOSS_ID, bossType: finalBossData.bossType, bossScale: 2.65, introProgress: 0, palette: finalBossData.palette, phase: Math.random() * 6, speed: 19, health: 12, maxHealth: 12, hitFlash: 0 });
+    nearbyIdolId = ''; pressed.clear();
+    player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; player.moving = false;
+    finalCinematicTimer = finalCinematicDuration; finalCinematicPhase = -1;
+    $('#finalCinematic').hidden = false;
+    updateBossHud(); updateEnemyCount();
+    updateDashButton();
+    updateFinalCinematic(0);
+    showToast('The island trembles as the ancient guardian awakens!');
+  }
+  function updateFinalCinematic(dt) {
+    if (finalCinematicTimer <= 0) return;
+    finalCinematicTimer = Math.max(0, finalCinematicTimer - dt);
+    const elapsed = finalCinematicDuration - finalCinematicTimer;
+    const boss = enemies.find(enemy => enemy.role === 'boss');
+    if (boss) boss.introProgress = clamp(elapsed / 3.25, 0, 1);
+    const phase = elapsed < 1.65 ? 0 : elapsed < 3.35 ? 1 : 2;
+    if (phase !== finalCinematicPhase) {
+      finalCinematicPhase = phase;
+      const scenes = [
+        ['THE ISLAND REMEMBERS', 'The guardians return', 'Your new friends gather at the island’s heart.'],
+        ['AN ANCIENT POWER AWAKENS', 'The Island Titan', 'A colossal guardian rises as the five guardians surround you.'],
+        ['FINAL CHALLENGE', 'The Island Titan', 'Dash to strike. Defeat the titan to save the island.']
+      ];
+      const [eyebrow, title, caption] = scenes[phase];
+      $('#cinematicEyebrow').textContent = eyebrow;
+      $('#cinematicTitle').textContent = title;
+      $('#cinematicCaption').textContent = caption;
+      const copy = $('#finalCinematicCopy');
+      copy.classList.remove('reveal'); void copy.offsetWidth; copy.classList.add('reveal');
+    }
+    pressed.clear();
+    if (finalCinematicTimer === 0) {
+      $('#finalCinematic').hidden = true;
+      finalCinematicPhase = -1;
+      showToast('The battle begins! Dash to strike the Island Titan.');
+      updateDashButton();
+    }
+  }
   function checkIdolPickup() {
     if (activeBossId) return;
+    if (defeatedBosses.size === idolData.length && !finalBossDefeated) {
+      const distance = Math.hypot(player.x - finalBossData.tx * world.size, player.y - finalBossData.ty * world.size);
+      if (distance < 24) { startFinalBossFight(); return; }
+      if (distance < 68) {
+        if (nearbyIdolId !== FINAL_BOSS_ID) showToast('The giant idol hums in the island center. Walk up to awaken it!');
+        nearbyIdolId = FINAL_BOSS_ID;
+        return;
+      }
+      nearbyIdolId = '';
+      return;
+    }
     for (const idol of idolData) {
       if (defeatedBosses.has(idol.biome)) continue;
       const distance = Math.hypot(player.x - idol.tx * world.size, player.y - idol.ty * world.size);
@@ -1508,10 +1649,21 @@
     safeSave({ ...existing, defeatedBosses: [...defeatedBosses] });
     activeBossId = null;
     updateIdolProgress(); updateBossHud(); updateEnemyCount();
-    showToast(`${idol.boss} is your friend now! You found the ${idol.title}.`);
+    if (defeatedBosses.size === idolData.length) showToast('All five guardians are your friends! A giant idol appeared at the island center!');
+    else showToast(`${idol.boss} is your friend now! You found the ${idol.title}.`);
+  }
+  function finishFinalBossFight() {
+    finalBossDefeated = true;
+    activeBossId = null; nearbyIdolId = ''; enemies.length = 0;
+    const existing = safeLoad();
+    safeSave({ ...existing, finalBossDefeated: true });
+    updateIdolProgress(); updateBossHud(); updateEnemyCount();
+    $('#victoryBanner').hidden = false;
+    launchConfetti();
+    showToast('You won! The Island Titan is defeated!');
   }
   function startDash() {
-    if (!$('#playView').classList.contains('active') || player.ridingSlide || player.panicTimer > 0 || player.dolphinRideTimer > 0 || player.dashCooldown > 0 || player.dashTimer > 0) return;
+    if (!$('#playView').classList.contains('active') || finalCinematicTimer > 0 || player.ridingSlide || player.panicTimer > 0 || player.dolphinRideTimer > 0 || player.dashCooldown > 0 || player.dashTimer > 0) return;
     let dx = 0, dy = 0;
     if (pressed.has('ArrowLeft') || pressed.has('KeyA')) dx--;
     if (pressed.has('ArrowRight') || pressed.has('KeyD')) dx++;
@@ -1540,13 +1692,25 @@
     button.title = player.panicTimer > 0 ? 'Run to shore!' : player.ridingSlide || player.dolphinRideTimer > 0 ? 'Enjoy the ride!' : cooling ? 'Dash is recharging' : 'Dash in the direction you are facing';
   }
   function updateEnemies(dt) {
-    for (const enemy of enemies) {
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const enemy = enemies[i];
       enemy.phase += dt;
       enemy.hitFlash = Math.max(0, (enemy.hitFlash || 0) - dt);
+      if (enemy.knockbackTimer > 0) {
+        const amount = Math.min(enemy.knockbackSpeed * dt, enemy.knockbackSpeed * enemy.knockbackTimer);
+        const nextX = enemy.x + enemy.knockbackDX * amount, nextY = enemy.y + enemy.knockbackDY * amount;
+        if (!collides(nextX, enemy.y)) enemy.x = clamp(nextX, 24, world.width * world.size - 24);
+        if (!collides(enemy.x, nextY)) enemy.y = clamp(nextY, 24, world.height * world.size - 24);
+        enemy.knockbackTimer = Math.max(0, enemy.knockbackTimer - dt);
+        enemy.knockbackAngle *= .88;
+        if (enemy.knockedOut && enemy.knockbackTimer === 0) enemies.splice(i, 1);
+        continue;
+      }
       if (enemy.staggerTimer > 0) { enemy.staggerTimer = Math.max(0, enemy.staggerTimer - dt); continue; }
       const dx = player.x - enemy.x, dy = player.y - enemy.y;
       const distance = Math.hypot(dx, dy);
-      if (distance < 30) {
+      const contactRange = enemy.role === 'boss' ? 30 * Math.min(enemy.bossScale || 1, 2) : 30;
+      if (distance < contactRange) {
         if (!hurtPlayer()) return;
         continue;
       }
@@ -1555,27 +1719,54 @@
       if (!collides(nextX, enemy.y)) enemy.x = nextX;
       if (!collides(enemy.x, nextY)) enemy.y = nextY;
     }
+    if (enemies.length === 0 && activeBossId) {
+      if (activeBossId === FINAL_BOSS_ID) finishFinalBossFight();
+      else finishBossFight();
+    }
+  }
+  function setEnemyKnockback(enemy, dx, dy, speed, duration, angle, knockedOut = false) {
+    const distance = Math.hypot(dx, dy) || 1;
+    enemy.knockbackDX = distance > 1 ? dx / distance : -player.dashDX;
+    enemy.knockbackDY = distance > 1 ? dy / distance : -player.dashDY;
+    enemy.knockbackSpeed = speed;
+    enemy.knockbackTimer = duration;
+    enemy.knockbackAngle = (dx * player.dashDY - dy * player.dashDX >= 0 ? 1 : -1) * angle;
+    enemy.knockedOut = knockedOut;
   }
   function bopEnemies() {
-    let bopped = 0, bossHits = 0;
+    let bopped = 0, bossHits = 0, finalBossKilled = false;
     for (let i = enemies.length - 1; i >= 0; i--) {
       const enemy = enemies[i];
+      if (enemy.knockbackTimer > 0) continue;
       const dx = player.x - enemy.x, dy = player.y - enemy.y;
-      const reach = enemy.role === 'boss' ? 39 : 29;
+      const reach = enemy.role === 'boss' ? 39 * Math.min(enemy.bossScale || 1, 2) : 29;
       if (dx * dx + dy * dy >= reach * reach) continue;
       if (enemy.role === 'boss') {
         if (player.dashHitBoss) continue;
         player.dashHitBoss = true;
-        enemy.health--; enemy.hitFlash = .28; enemy.staggerTimer = .3; bossHits++;
-        if (enemy.health <= 0) enemies.splice(i, 1);
+        enemy.health--; enemy.hitFlash = .28; enemy.staggerTimer = .12;
+        setEnemyKnockback(enemy, -dx, -dy, 240, .24, .22);
+        bossHits++;
+        if (enemy.health <= 0) {
+          enemies.splice(i, 1);
+          if (activeBossId === FINAL_BOSS_ID) finalBossKilled = true;
+        }
       } else {
-        enemies.splice(i, 1); bopped++;
+        setEnemyKnockback(enemy, -dx, -dy, 300, .38, .75, true);
+        bopped++;
       }
     }
     if (!bopped && !bossHits) return;
     updateBossHud(); updateEnemyCount();
-    if (enemies.length === 0) finishBossFight();
-    else if (bossHits) showToast(`Dash! ${idolData.find(item => item.biome === activeBossId)?.boss} has ${enemies.find(enemy => enemy.role === 'boss')?.health ?? 0} hearts left.`);
+    if (finalBossKilled) { finishFinalBossFight(); return; }
+    if (enemies.length === 0) {
+      if (activeBossId === FINAL_BOSS_ID) finishFinalBossFight();
+      else finishBossFight();
+    }
+    else if (bossHits) {
+      const bossName = activeBossId === FINAL_BOSS_ID ? finalBossData.boss : idolData.find(item => item.biome === activeBossId)?.boss;
+      showToast(`Dash! ${bossName} has ${enemies.find(enemy => enemy.role === 'boss')?.health ?? 0} hearts left.`);
+    }
     else showToast(bopped === 1 ? 'Boop! One minion ran off.' : `Boop! ${bopped} minions ran off.`);
   }
   function updatePartyDance() {
@@ -1725,12 +1916,18 @@
     const dt = Math.min(.04, (time - lastTick) / 1000 || 0);
     lastTick = time;
     if ($('#playView').classList.contains('active')) {
-      movePlayer(dt);
-      updateShark(dt, time);
-      updateSoccerBall(dt);
-      updateSoccerHud();
-      updateDolphinHud();
-      updateEnemies(dt);
+      if (finalCinematicTimer <= 0) {
+        movePlayer(dt);
+        if (finalCinematicTimer <= 0) {
+          updateShark(dt, time);
+          updateSoccerBall(dt);
+          updateSoccerHud();
+          updateDolphinHud();
+          updateEnemies(dt);
+        }
+      }
+      if (finalCinematicTimer > 0) updateFinalCinematic(dt);
+      updateConfetti(dt);
       renderWorld(time);
       updatePartyMusic(time);
       if (soundOn) maybePlayAmbient(time);
@@ -1778,6 +1975,7 @@
   });
   function resetGame(message = 'Back in the sunny meadow.') {
     if (activeBossId) awakenedIdols.delete(activeBossId);
+    finalCinematicTimer = 0; finalCinematicPhase = -1; $('#finalCinematic').hidden = true;
     activeBossId = null;
     nearbyIdolId = '';
     player.x = 56 * 32; player.y = 40 * 32; player.face = 'down'; player.moving = false; player.inWater = false;
