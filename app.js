@@ -1500,6 +1500,10 @@
     ctx.fillStyle = '#efa84f'; ctx.beginPath(); ctx.moveTo(10, -3); ctx.lineTo(15, -1); ctx.lineTo(10, 1); ctx.closePath(); ctx.fill();
     ctx.fillStyle = chicken.angry ? '#fff7df' : '#35463d'; ctx.fillRect(7, -5, 2, 2);
     ctx.fillStyle = '#d58a48'; ctx.fillRect(-4, 7, 2, 4); ctx.fillRect(2, 7, 2, 4);
+    if (chicken.angry && chicken.angerDelay > 0) {
+      ctx.fillStyle = '#fff0a0'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('✦', -9, -11 + Math.sin(time * .02) * 2); ctx.fillText('✦', 11, -12 - Math.sin(time * .02) * 2);
+    }
     ctx.restore();
   }
 
@@ -1797,7 +1801,7 @@
     }
     for (let i = 0; i < spots.length; i++) {
       const spot = spots[i];
-      chickens.push({ ...spot, homeX: spot.x, homeY: spot.y, face: hash(i, 2, 97) * Math.PI * 2, phase: hash(i, 4, 101) * Math.PI * 2, fleeTimer: 0, fleeDX: 0, fleeDY: 0, angry: false });
+      chickens.push({ ...spot, homeX: spot.x, homeY: spot.y, face: hash(i, 2, 97) * Math.PI * 2, phase: hash(i, 4, 101) * Math.PI * 2, fleeTimer: 0, fleeDX: 0, fleeDY: 0, angry: false, angerDelay: 0, knockbackTimer: 0, knockbackDX: 0, knockbackDY: 0 });
     }
   }
   populateChickens();
@@ -1811,10 +1815,26 @@
       const dxToPlayer = player.x - chicken.x, dyToPlayer = player.y - chicken.y;
       const distance = Math.hypot(dxToPlayer, dyToPlayer) || 1;
       let dx = 0, dy = 0, speed = 0;
+      if (chicken.knockbackTimer > 0) {
+        const amount = 300 * dt;
+        const nextX = chicken.x + chicken.knockbackDX * amount;
+        const nextY = chicken.y + chicken.knockbackDY * amount;
+        if (chickenCanMove(nextX, chicken.y)) chicken.x = nextX;
+        if (chickenCanMove(chicken.x, nextY)) chicken.y = nextY;
+        chicken.face = Math.atan2(chicken.knockbackDY, chicken.knockbackDX);
+        chicken.knockbackTimer = Math.max(0, chicken.knockbackTimer - dt);
+        chicken.angerDelay = Math.max(0, chicken.angerDelay - dt);
+        continue;
+      }
+      if (chicken.angry && chicken.angerDelay > 0) {
+        chicken.angerDelay = Math.max(0, chicken.angerDelay - dt);
+        continue;
+      }
       if (chicken.angry) {
         if (distance < 23) {
           const survived = hurtPlayer();
           chicken.angry = false;
+          chicken.angerDelay = 0; chicken.knockbackTimer = 0;
           chicken.fleeTimer = .8;
           chicken.fleeDX = -dxToPlayer / distance;
           chicken.fleeDY = -dyToPlayer / distance;
@@ -1851,8 +1871,14 @@
     let tagged = 0;
     for (const chicken of chickens) {
       if (chicken.angry || Math.hypot(player.x - chicken.x, player.y - chicken.y) > 31) continue;
+      const dx = chicken.x - player.x, dy = chicken.y - player.y;
+      const distance = Math.hypot(dx, dy) || 1;
       chicken.angry = true;
       chicken.fleeTimer = 0;
+      chicken.angerDelay = 1;
+      chicken.knockbackTimer = .28;
+      chicken.knockbackDX = distance > 1 ? dx / distance : -player.dashDX;
+      chicken.knockbackDY = distance > 1 ? dy / distance : -player.dashDY;
       tagged++;
     }
     return tagged;
@@ -1861,6 +1887,7 @@
     for (const chicken of chickens) {
       chicken.x = chicken.homeX; chicken.y = chicken.homeY;
       chicken.fleeTimer = 0; chicken.fleeDX = 0; chicken.fleeDY = 0; chicken.angry = false;
+      chicken.angerDelay = 0; chicken.knockbackTimer = 0; chicken.knockbackDX = 0; chicken.knockbackDY = 0;
     }
   }
   function updateEnemyCount() {
