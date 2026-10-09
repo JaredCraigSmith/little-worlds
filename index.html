@@ -139,6 +139,8 @@
                 <div class="game-hint" id="gameHint"><span class="hint-key">W</span><span class="hint-key">A</span><span class="hint-key">S</span><span class="hint-key">D</span><span class="hint-copy">to wander · Space / Shift to dash</span><span class="hint-divider"></span><span class="hint-touch">or use the arrow pad</span></div>
                 <div class="player-health" id="playerHealth" role="status" aria-label="Player health: 3 of 3 hearts"><small>HEALTH</small><span id="healthHearts" aria-hidden="true">♥ ♥ ♥</span></div>
                 <div class="game-toast" id="gameToast" aria-live="polite"></div>
+                <div class="treehouse-prompt" id="treehousePrompt" hidden><span>There’s a treehouse here!</span><button id="enterTreehouseButton" type="button">Enter <kbd>E</kbd></button></div>
+                <div class="treehouse-hud" id="treehouseHud" hidden><div class="treehouse-hud-title"><strong>Treehouse platform game</strong><span id="treehouseCoinCount" aria-live="polite">🪙 0 / 14</span></div><small>Move with A / D or ← / →. Jump with Space, W, or ↑. Find the EXIT door, press E, or choose Exit house.</small><div class="treehouse-hud-actions"><button id="platformJumpButton" type="button">Jump ↑</button><button id="exitTreehouseButton" type="button">Exit house ↗</button></div></div>
                 <div class="final-cinematic" id="finalCinematic" aria-live="assertive" hidden><div class="final-cinematic-copy" id="finalCinematicCopy"><span id="cinematicEyebrow">THE ISLAND REMEMBERS</span><strong id="cinematicTitle">The guardians return</strong><p id="cinematicCaption">Your new friends gather at the island’s heart.</p><small>✦ &nbsp; PREPARE YOURSELF &nbsp; ✦</small></div></div>
                 <div class="victory-banner" id="victoryBanner" role="status" aria-live="assertive" hidden><span>✦ ISLAND SAVED ✦</span><strong>You won!</strong><small>The Island Titan is defeated. The guardians are free!</small><button class="continue-button" id="continueButton" type="button">Continue exploring <span>→</span></button></div>
                 <div class="boss-status" id="bossStatus" hidden aria-live="polite">
@@ -146,7 +148,7 @@
                   <div class="boss-health-track"><span id="bossHealthBar" role="progressbar" aria-label="Boss health" aria-valuemin="0" aria-valuemax="4" aria-valuenow="4"></span></div>
                   <small class="boss-health-label" id="bossHealthLabel">4 hearts</small>
                 </div>
-                <div class="touch-pad" aria-label="Movement controls">
+                <div class="touch-pad" id="touchPad" aria-label="Movement controls">
                   <button class="pad-key pad-up" data-key="ArrowUp" type="button" aria-label="Move up">↑</button>
                   <button class="pad-key pad-left" data-key="ArrowLeft" type="button" aria-label="Move left">←</button>
                   <button class="pad-key pad-down" data-key="ArrowDown" type="button" aria-label="Move down">↓</button>

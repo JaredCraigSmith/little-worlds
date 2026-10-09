@@ -740,6 +740,14 @@
     return n - Math.floor(n);
   }
   const world = { width: 112, height: 80, size: 32 };
+  const treehouse = { tx: 64, ty: 28, doorTx: 64, doorTy: 31 };
+  let platformMode = false;
+  let platformer = { x: 48, y: 0, vx: 0, vy: 0, width: 24, height: 34, grounded: false, face: 1, coins: new Set(), cameraX: 0 };
+  const platformCoinLayout = [
+    [105, 44], [185, 82], [260, 120], [352, 52], [438, 112], [536, 158],
+    [650, 58], [744, 112], [850, 188], [978, 72], [1082, 128], [1190, 185],
+    [1315, 92], [1450, 58]
+  ];
   const waterSlide = {
     points: [[53, 34], [53, 35], [54, 36], [55, 37], [55, 38], [54, 39], [53, 40], [52, 41], [51, 42]]
       .map(([tx, ty]) => ({ x: tx * world.size, y: ty * world.size }))
@@ -816,6 +824,7 @@
     if (waterSlide.points.some(point => Math.abs(tx - Math.floor(point.x / world.size)) <= 1 && Math.abs(ty - Math.floor(point.y / world.size)) <= 1)) return null;
     if (tx >= danceParty.left - 1 && tx <= danceParty.right + 1 && ty >= danceParty.top - 1 && ty <= danceParty.bottom + 1) return null;
     if (tx >= soccerField.left - 1 && tx <= soccerField.right + 1 && ty >= soccerField.top - 1 && ty <= soccerField.bottom + 1) return null;
+    if (tx >= treehouse.tx - 3 && tx <= treehouse.tx + 3 && ty >= treehouse.ty - 2 && ty <= treehouse.ty + 2 && !(tx === treehouse.tx && ty === treehouse.ty + 2)) return { type: 'treehouse' };
     const value = hash(tx, ty, 4);
     if (biome === 'forest' && value < .15) return { type: 'tree', biome };
     if (biome === 'snow' && value < .1) return { type: 'pine', biome };
@@ -866,6 +875,7 @@
   function drawObstacle(ctx, tx, ty, sx, sy, time) {
     const obstacle = obstacleAt(tx, ty);
     if (!obstacle) return;
+    if (obstacle.type === 'treehouse') return;
     const wobble = Math.sin(time * .0014 + tx * 2 + ty) * .7;
     if (obstacle.type === 'tree') {
       ctx.fillStyle = 'rgba(44,78,50,.18)'; ctx.beginPath(); ctx.ellipse(sx + 17, sy + 27, 13, 5, 0, 0, Math.PI * 2); ctx.fill();
@@ -1483,6 +1493,183 @@
     ctx.restore();
   }
 
+  function drawTreehouse(ctx, time) {
+    const sx = treehouse.tx * world.size - cameraX + world.size / 2;
+    const sy = treehouse.ty * world.size - cameraY;
+    if (sx < -160 || sy < -180 || sx > gameWidth + 160 || sy > gameHeight + 180) return;
+    const leaves = ['#548b59', '#659d61', '#78ad6d'];
+    ctx.save();
+    ctx.fillStyle = 'rgba(46,74,49,.2)'; ctx.beginPath(); ctx.ellipse(sx, sy + 146, 61, 13, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#765238'; ctx.fillRect(sx - 15, sy + 45, 30, 105);
+    ctx.fillStyle = '#946743'; ctx.fillRect(sx - 6, sy + 52, 5, 83);
+    ctx.strokeStyle = '#6f4a32'; ctx.lineWidth = 10; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(sx, sy + 73); ctx.lineTo(sx - 54, sy + 40); ctx.moveTo(sx, sy + 70); ctx.lineTo(sx + 50, sy + 40); ctx.stroke();
+    const wobble = Math.sin(time * .0013) * 2;
+    for (const leaf of [{ x: -52, y: 16, r: 34 }, { x: -19, y: -7, r: 39 }, { x: 22, y: -5, r: 41 }, { x: 56, y: 17, r: 33 }, { x: 0, y: 29, r: 40 }]) {
+      ctx.fillStyle = leaves[Math.floor((leaf.x + 100) / 35) % leaves.length];
+      ctx.beginPath(); ctx.arc(sx + leaf.x, sy + leaf.y + wobble, leaf.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = '#674b37'; ctx.fillRect(sx - 66, sy + 87, 132, 12);
+    ctx.fillStyle = '#d89a5b'; ctx.fillRect(sx - 58, sy + 32, 116, 58);
+    ctx.fillStyle = '#f0c27b'; ctx.beginPath(); ctx.moveTo(sx - 70, sy + 35); ctx.lineTo(sx, sy - 3); ctx.lineTo(sx + 70, sy + 35); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#a85f4c'; ctx.beginPath(); ctx.moveTo(sx - 70, sy + 35); ctx.lineTo(sx, sy - 9); ctx.lineTo(sx + 70, sy + 35); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffe5a8'; ctx.fillRect(sx - 48, sy + 47, 22, 18); ctx.fillRect(sx + 26, sy + 47, 22, 18);
+    ctx.fillStyle = '#9b6847'; ctx.fillRect(sx - 39, sy + 47, 4, 18); ctx.fillRect(sx + 35, sy + 47, 4, 18);
+    ctx.fillStyle = '#805139'; ctx.fillRect(sx - 12, sy + 58, 24, 32);
+    ctx.fillStyle = '#f6d886'; ctx.beginPath(); ctx.arc(sx + 7, sy + 74, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#d29a5c'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(sx - 10, sy + 91); ctx.lineTo(sx - 10, sy + 122); ctx.moveTo(sx + 10, sy + 91); ctx.lineTo(sx + 10, sy + 122);
+    for (let rung = 0; rung < 4; rung++) { const y = sy + 96 + rung * 7; ctx.moveTo(sx - 10, y); ctx.lineTo(sx + 10, y); }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,236,167,.7)'; ctx.beginPath(); ctx.arc(sx, sy + 118 + Math.sin(time * .004) * 2, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function platformFloorY() { return Math.max(252, gameHeight - 48); }
+  function platformLedges() {
+    const floor = platformFloorY();
+    return [
+      { x: 170, y: floor - 82, width: 132 }, { x: 365, y: floor - 145, width: 128 },
+      { x: 555, y: floor - 96, width: 140 }, { x: 755, y: floor - 172, width: 138 },
+      { x: 960, y: floor - 106, width: 138 }, { x: 1160, y: floor - 184, width: 145 },
+      { x: 1385, y: floor - 104, width: 160 }
+    ];
+  }
+  function platformCoinPosition(index) {
+    const floor = platformFloorY(), [x, rise] = platformCoinLayout[index];
+    return { x, y: floor - rise };
+  }
+  function updatePlatformCoinCount() {
+    $('#treehouseCoinCount').textContent = `🪙 ${platformer.coins.size} / ${platformCoinLayout.length}`;
+  }
+  function jumpPlatformer() {
+    if (!platformMode || !platformer.grounded) return;
+    platformer.vy = -470; platformer.grounded = false;
+  }
+  function updatePlatformer(dt) {
+    const right = pressed.has('ArrowRight') || pressed.has('KeyD');
+    const left = pressed.has('ArrowLeft') || pressed.has('KeyA');
+    const direction = Number(right) - Number(left);
+    platformer.vx = direction * 220;
+    if (direction) platformer.face = direction;
+    platformer.x = clamp(platformer.x + platformer.vx * dt, 0, platformer.levelWidth - platformer.width);
+    const oldBottom = platformer.y + platformer.height;
+    platformer.vy = Math.min(780, platformer.vy + 1150 * dt);
+    platformer.y += platformer.vy * dt;
+    platformer.grounded = false;
+    const floor = platformFloorY();
+    if (platformer.y + platformer.height >= floor) {
+      platformer.y = floor - platformer.height; platformer.vy = 0; platformer.grounded = true;
+    }
+    if (platformer.vy >= 0) for (const ledge of platformLedges()) {
+      if (oldBottom <= ledge.y && platformer.y + platformer.height >= ledge.y && platformer.x + platformer.width > ledge.x && platformer.x < ledge.x + ledge.width) {
+        platformer.y = ledge.y - platformer.height; platformer.vy = 0; platformer.grounded = true; break;
+      }
+    }
+    const heroX = platformer.x + platformer.width / 2, heroY = platformer.y + platformer.height / 2;
+    for (let i = 0; i < platformCoinLayout.length; i++) {
+      if (platformer.coins.has(i)) continue;
+      const coin = platformCoinPosition(i);
+      if (Math.hypot(heroX - coin.x, heroY - coin.y) < 27) {
+        platformer.coins.add(i); updatePlatformCoinCount();
+        showToast('You found a treehouse coin!');
+      }
+    }
+    const exitX = platformer.levelWidth - 66;
+    platformer.nearExit = platformer.x + platformer.width / 2 > exitX - 48;
+    platformer.cameraX = clamp(platformer.x - gameWidth * .36, 0, platformer.levelWidth - gameWidth);
+  }
+  function drawPlatformer(ctx, time) {
+    const floor = platformFloorY(), camera = platformer.cameraX || 0;
+    const levelWidth = platformer.levelWidth;
+    const backdrop = ctx.createLinearGradient(0, 0, 0, gameHeight);
+    backdrop.addColorStop(0, '#dcae76'); backdrop.addColorStop(.72, '#efd4a0'); backdrop.addColorStop(1, '#bd8455');
+    ctx.fillStyle = backdrop; ctx.fillRect(0, 0, gameWidth, gameHeight);
+    ctx.save(); ctx.translate(-camera, 0);
+    ctx.fillStyle = 'rgba(255,245,210,.28)';
+    for (let x = 0; x < levelWidth; x += 120) ctx.fillRect(x, 0, 5, floor - 15);
+    for (let x = 50; x < levelWidth; x += 390) {
+      ctx.fillStyle = '#815a40'; ctx.fillRect(x, 58, 82, 98);
+      ctx.fillStyle = '#a9d8d1'; ctx.fillRect(x + 7, 65, 68, 83);
+      ctx.fillStyle = 'rgba(255,255,255,.48)'; ctx.fillRect(x + 11, 69, 24, 72);
+      ctx.fillStyle = '#815a40'; ctx.fillRect(x + 39, 65, 4, 83); ctx.fillRect(x + 7, 103, 68, 4);
+    }
+    ctx.fillStyle = '#805638'; ctx.fillRect(0, floor, levelWidth, gameHeight - floor);
+    ctx.fillStyle = '#e4b778'; ctx.fillRect(0, floor, levelWidth, 10);
+    for (let x = 0; x < levelWidth; x += 82) {
+      ctx.strokeStyle = 'rgba(84,54,37,.25)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, floor + 14); ctx.lineTo(x, gameHeight); ctx.stroke();
+      ctx.fillStyle = 'rgba(247,213,160,.18)'; ctx.fillRect(x + 8, floor + 22, 28, 3);
+    }
+    for (const ledge of platformLedges()) {
+      ctx.fillStyle = '#6d4933'; ctx.fillRect(ledge.x, ledge.y + 7, ledge.width, 15);
+      ctx.fillStyle = '#c1854e'; ctx.fillRect(ledge.x, ledge.y, ledge.width, 10);
+      ctx.fillStyle = '#edc181'; ctx.fillRect(ledge.x, ledge.y, ledge.width, 3);
+    }
+    for (let i = 0; i < platformCoinLayout.length; i++) {
+      if (platformer.coins.has(i)) continue;
+      const coin = platformCoinPosition(i), bob = Math.sin(time * .006 + i) * 4;
+      ctx.fillStyle = 'rgba(110,74,35,.2)'; ctx.beginPath(); ctx.ellipse(coin.x, coin.y + 12 + bob, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d39132'; ctx.beginPath(); ctx.arc(coin.x, coin.y + bob, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffd968'; ctx.beginPath(); ctx.arc(coin.x, coin.y + bob, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff1a6'; ctx.fillRect(coin.x - 2, coin.y - 4 + bob, 2, 5);
+    }
+    const exitX = levelWidth - 66;
+    ctx.fillStyle = '#654832'; ctx.fillRect(exitX - 24, floor - 82, 48, 82);
+    ctx.fillStyle = '#d89a5b'; ctx.fillRect(exitX - 19, floor - 76, 38, 76);
+    ctx.fillStyle = '#fff1c5'; ctx.fillRect(exitX - 12, floor - 68, 24, 31);
+    ctx.fillStyle = '#946144'; ctx.fillRect(exitX + 9, floor - 42, 4, 4);
+    ctx.fillStyle = '#fff8df'; ctx.font = '900 12px Nunito,sans-serif'; ctx.textAlign = 'center'; ctx.fillText('EXIT', exitX, floor - 91);
+    ctx.fillStyle = 'rgba(255,247,218,.55)'; ctx.beginPath(); ctx.ellipse(platformer.x + 12, floor - 5, 17, 5, 0, 0, Math.PI * 2); ctx.fill();
+    const pose = platformer.vx ? Math.floor(time / 110) % 4 : 0;
+    const frame = spriteFrames?.[4 + pose];
+    ctx.save();
+    ctx.translate(platformer.x + platformer.width / 2, platformer.y);
+    if (platformer.face < 0) ctx.scale(-1, 1);
+    if (frame?.complete) ctx.drawImage(frame, -16, 0, 32, 36);
+    else {
+      ctx.fillStyle = '#729568'; ctx.fillRect(-8, 14, 17, 18);
+      ctx.fillStyle = '#f3c896'; ctx.fillRect(-8, 1, 16, 16);
+      ctx.fillStyle = '#755b48'; ctx.fillRect(-9, 0, 18, 5);
+    }
+    ctx.restore(); ctx.restore();
+  }
+  function updateTreehousePrompt() {
+    const doorX = treehouse.doorTx * world.size + world.size / 2;
+    const doorY = treehouse.doorTy * world.size + world.size / 2;
+    const nearDoor = !platformMode && !activeBossId && finalCinematicTimer <= 0
+      && Math.hypot(player.x + world.size / 2 - doorX, player.y + world.size / 2 - doorY) < 64;
+    $('#treehousePrompt').hidden = !nearDoor;
+    return nearDoor;
+  }
+  function enterTreehouse() {
+    if (!updateTreehousePrompt()) return;
+    platformer.levelWidth = Math.max(1640, gameWidth * 2.1);
+    platformer.x = 48; platformer.y = platformFloorY() - platformer.height;
+    platformer.vx = 0; platformer.vy = 0; platformer.grounded = true; platformer.face = 1;
+    platformer.coins = new Set(); platformer.cameraX = 0; platformer.nearExit = false;
+    platformer.victoryWasVisible = !$('#victoryBanner').hidden;
+    platformMode = true; pressed.clear();
+    gameViewport.classList.add('treehouse-active');
+    $('#treehousePrompt').hidden = true; $('#treehouseHud').hidden = false;
+    $('#gameHint').hidden = true; $('#playerHealth').hidden = true; $('#bossStatus').hidden = true;
+    $('.combat-controls').hidden = true; $('.map-stamp').hidden = true;
+    $('#victoryBanner').hidden = true;
+    updatePlatformCoinCount();
+    showToast('Welcome to the treehouse! Find the coins and head for the exit.');
+  }
+  function exitTreehouse() {
+    if (!platformMode) return;
+    platformMode = false; pressed.clear();
+    gameViewport.classList.remove('treehouse-active');
+    $('#treehouseHud').hidden = true; $('#gameHint').hidden = false;
+    $('#playerHealth').hidden = false; $('.combat-controls').hidden = false; $('.map-stamp').hidden = false;
+    if (platformer.victoryWasVisible) $('#victoryBanner').hidden = false;
+    updateBossHud(); updateDashButton(); updateSoccerHud(); updateDolphinHud();
+    updateTreehousePrompt();
+    showToast('You stepped outside the treehouse.');
+  }
+
   function launchConfetti() {
     confettiParticles.length = 0;
     const colors = ['#f47880', '#ffd568', '#73c8a0', '#79b9e8', '#ac8de0', '#fff2ae'];
@@ -1520,6 +1707,7 @@
 
   function renderWorld(time) {
     if (!gameWidth || !gameHeight) return;
+    if (platformMode) { drawPlatformer(gameCtx, time); return; }
     const cinematicElapsed = finalCinematicTimer > 0 ? finalCinematicDuration - finalCinematicTimer : 0;
     const shake = finalCinematicTimer > 0 ? Math.min(3.5, cinematicElapsed * 1.4) : 0;
     cameraX = player.x - gameWidth / 2 + Math.sin(time * .061) * shake;
@@ -1535,6 +1723,7 @@
       drawGround(gameCtx, x, y, sx, sy, time);
       drawObstacle(gameCtx, x, y, sx, sy, time);
     }
+    drawTreehouse(gameCtx, time);
     drawSoccerField(gameCtx, time);
     drawWaterSlide(gameCtx, time);
     drawDanceParty(gameCtx, time);
@@ -2125,7 +2314,8 @@
     const dt = Math.min(.04, (time - lastTick) / 1000 || 0);
     lastTick = time;
     if ($('#playView').classList.contains('active')) {
-      if (finalCinematicTimer <= 0) {
+      if (platformMode) updatePlatformer(dt);
+      else if (finalCinematicTimer <= 0) {
         movePlayer(dt);
         if (finalCinematicTimer <= 0) {
           updateShark(dt, time);
@@ -2136,6 +2326,7 @@
           updateChickens(dt);
         }
       }
+      if (!platformMode) updateTreehousePrompt();
       if (finalCinematicTimer > 0) updateFinalCinematic(dt);
       updateConfetti(dt);
       renderWorld(time);
@@ -2156,6 +2347,21 @@
     }
     if (event.target.matches('input,textarea,select,[contenteditable="true"]')) return;
     const key = event.code;
+    if ($('#playView').classList.contains('active') && platformMode) {
+      if (key === 'Escape') { event.preventDefault(); exitTreehouse(); return; }
+      if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(key)) { event.preventDefault(); pressed.add(key); return; }
+      if (['Space', 'ArrowUp', 'KeyW'].includes(key)) { event.preventDefault(); if (!event.repeat) jumpPlatformer(); return; }
+      if (key === 'KeyE') {
+        event.preventDefault();
+        if (platformer.nearExit) exitTreehouse();
+        else showToast('The exit is at the far end of the treehouse.');
+        return;
+      }
+      return;
+    }
+    if ($('#playView').classList.contains('active') && key === 'KeyE' && updateTreehousePrompt()) {
+      event.preventDefault(); enterTreehouse(); return;
+    }
     if ($('#playView').classList.contains('active') && key === 'KeyF') {
       event.preventDefault(); if (!event.repeat) kickSoccerBall(); return;
     }
@@ -2175,7 +2381,7 @@
   window.addEventListener('blur', () => pressed.clear());
   $$('.pad-key').forEach(button => {
     const key = button.dataset.key;
-    const down = event => { event.preventDefault(); pressed.add(key); button.classList.add('held'); };
+    const down = event => { event.preventDefault(); if (platformMode && key === 'ArrowUp') jumpPlatformer(); else pressed.add(key); button.classList.add('held'); };
     const up = event => { event.preventDefault(); pressed.delete(key); button.classList.remove('held'); };
     button.addEventListener('pointerdown', down);
     button.addEventListener('pointerup', up);
@@ -2184,6 +2390,7 @@
     button.addEventListener('contextmenu', event => event.preventDefault());
   });
   function resetGame(message = 'Back in the sunny meadow.') {
+    if (platformMode) { platformer.victoryWasVisible = false; exitTreehouse(); }
     if (activeBossId) awakenedIdols.delete(activeBossId);
     finalCinematicTimer = 0; finalCinematicPhase = -1; $('#finalCinematic').hidden = true;
     activeBossId = null;
@@ -2216,6 +2423,9 @@
     resetGame('A fresh adventure begins in the sunny meadow!');
   }
   $('#restartEverythingButton').addEventListener('click', restartEverything);
+  $('#enterTreehouseButton').addEventListener('click', enterTreehouse);
+  $('#platformJumpButton').addEventListener('click', jumpPlatformer);
+  $('#exitTreehouseButton').addEventListener('click', exitTreehouse);
   $('#dashButton').addEventListener('click', startDash);
   $('#soccerKickButton').addEventListener('click', kickSoccerBall);
   $('#dolphinRideButton').addEventListener('click', startDolphinRide);
