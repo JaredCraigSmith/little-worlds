@@ -140,7 +140,7 @@
                 <div class="player-health" id="playerHealth" role="status" aria-label="Player health: 3 of 3 hearts"><small>HEALTH</small><span id="healthHearts" aria-hidden="true">♥ ♥ ♥</span></div>
                 <div class="game-toast" id="gameToast" aria-live="polite"></div>
                 <div class="final-cinematic" id="finalCinematic" aria-live="assertive" hidden><div class="final-cinematic-copy" id="finalCinematicCopy"><span id="cinematicEyebrow">THE ISLAND REMEMBERS</span><strong id="cinematicTitle">The guardians return</strong><p id="cinematicCaption">Your new friends gather at the island’s heart.</p><small>✦ &nbsp; PREPARE YOURSELF &nbsp; ✦</small></div></div>
-                <div class="victory-banner" id="victoryBanner" role="status" aria-live="assertive" hidden><span>✦ ISLAND SAVED ✦</span><strong>You won!</strong><small>The Island Titan is defeated. The guardians are free!</small></div>
+                <div class="victory-banner" id="victoryBanner" role="status" aria-live="assertive" hidden><span>✦ ISLAND SAVED ✦</span><strong>You won!</strong><small>The Island Titan is defeated. The guardians are free!</small><button class="continue-button" id="continueButton" type="button">Continue exploring <span>→</span></button></div>
                 <div class="boss-status" id="bossStatus" hidden aria-live="polite">
                   <div class="boss-status-heading"><span id="bossEmoji">✦</span><div><small id="bossBiome">A GUARDIAN WAKES</small><strong id="bossName">Petalcoil</strong></div></div>
                   <div class="boss-health-track"><span id="bossHealthBar" role="progressbar" aria-label="Boss health" aria-valuemin="0" aria-valuemax="4" aria-valuenow="4"></span></div>
@@ -162,7 +162,10 @@
               </div>
               <div class="game-bottomline">
                 <div class="movement-copy"><span class="keyboard-hint"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or arrows to move <span class="movement-sep">·</span> Space / Shift to dash</div>
-                <button class="restart-button" id="restartButton" type="button"><span>↻</span> Back to the meadow</button>
+                <div class="game-actions">
+                  <button class="restart-button" id="restartButton" type="button"><span>↻</span> Back to the meadow</button>
+                  <button class="restart-everything-button" id="restartEverythingButton" type="button" title="Start the adventure over and clear guardian progress"><span>⟲</span> Restart everything</button>
+                </div>
               </div>
             </div>
             <div class="under-game"><span class="under-game-sparkle">✦</span><span>Ride the water slide, find the east-shore dolphin for a fast 10-second ride, dance, or score at the forest soccer field.</span><span class="under-game-right">Dash to befriend them <span>☺</span></span></div>

@@ -39,6 +39,7 @@
   const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, health: maxPlayerHealth, damageCooldown: 0, healthRegenTimer: 0, partyDancing: false, slideTimer: 0, slideDX: 0, slideDY: 1, ridingSlide: false, slideProgress: 0, dolphinRideTimer: 0, sharkScareCooldown: 0, panicTimer: 0, panicDX: 1, panicDY: 0, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
   const pressed = new Set();
   const enemies = [];
+  const chickens = [];
   const found = new Set(['meadow']);
   const defeatedBosses = new Set();
   const awakenedIdols = new Set();
@@ -1382,6 +1383,9 @@
       ctx.fillStyle = '#fff9e8'; ctx.fillRect(sx - 8, sy - 2 + bob, 4, 5); ctx.fillRect(sx + 4, sy - 2 + bob, 4, 5);
       ctx.fillStyle = '#34463d'; ctx.fillRect(sx - 6, sy - 1 + bob, 2, 3); ctx.fillRect(sx + 6, sy - 1 + bob, 2, 3);
     } else {
+      if (enemy.enraged) {
+        ctx.strokeStyle = 'rgba(238,75,75,.2)'; ctx.lineWidth = 12; ctx.beginPath(); ctx.arc(sx, sy + bob, 31, 0, Math.PI * 2); ctx.stroke();
+      }
       ctx.strokeStyle = shadow; ctx.lineWidth = 6; ctx.lineCap = 'round';
       for (let i = -2; i <= 2; i++) {
         const offset = i * 8;
@@ -1391,7 +1395,9 @@
       ctx.fillStyle = body; ctx.beginPath(); ctx.ellipse(sx, sy + bob, 21, 19, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = accent; ctx.beginPath(); ctx.moveTo(sx - 13, sy - 8 + bob); ctx.lineTo(sx - 8, sy - 25 + bob); ctx.lineTo(sx - 3, sy - 10 + bob); ctx.lineTo(sx + 3, sy - 25 + bob); ctx.lineTo(sx + 10, sy - 9 + bob); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#fff9e8'; ctx.fillRect(sx - 10, sy - 2 + bob, 6, 7); ctx.fillRect(sx + 4, sy - 2 + bob, 6, 7);
-      ctx.fillStyle = '#34463d'; ctx.fillRect(sx - 7, sy, 3, 4); ctx.fillRect(sx + 7, sy, 3, 4);
+      ctx.fillStyle = enemy.enraged ? '#ff443f' : '#34463d';
+      if (enemy.enraged) { ctx.shadowColor = '#ff352f'; ctx.shadowBlur = 10; }
+      ctx.fillRect(sx - 7, sy, 3, 4); ctx.fillRect(sx + 7, sy, 3, 4); ctx.shadowBlur = 0;
     }
     if (enemy.hitFlash > 0) { ctx.fillStyle = `rgba(255,255,255,${Math.min(.6, enemy.hitFlash * 2)})`; ctx.beginPath(); ctx.arc(sx, sy + bob, 24, 0, Math.PI * 2); ctx.fill(); }
     if (enemy.role === 'boss') {
@@ -1399,11 +1405,81 @@
       const healthTop = sy - 38 + bob;
       ctx.fillStyle = 'rgba(39,54,43,.72)'; ctx.fillRect(sx - 25, healthTop - 1, 50, 8);
       ctx.fillStyle = '#eadfd2'; ctx.fillRect(sx - 22, healthTop + 1, 44, 4);
-      ctx.fillStyle = healthRatio > .5 ? '#79aa69' : healthRatio > .25 ? '#e3b65b' : '#df786b';
+      ctx.fillStyle = enemy.enraged ? '#f05e50' : healthRatio > .5 ? '#79aa69' : healthRatio > .25 ? '#e3b65b' : '#df786b';
       ctx.fillRect(sx - 22, healthTop + 1, 44 * healthRatio, 4);
       ctx.fillStyle = 'rgba(255,255,255,.75)';
       for (let heart = 1; heart < enemy.maxHealth; heart++) ctx.fillRect(sx - 22 + 44 * heart / enemy.maxHealth - .5, healthTop + 1, 1, 4);
     }
+    ctx.restore();
+  }
+
+  function finalBossLaserEyes(enemy) {
+    const eyeOffset = 7 * (enemy.bossScale || 1);
+    return [
+      { x: enemy.x - eyeOffset, y: enemy.y },
+      { x: enemy.x + eyeOffset, y: enemy.y }
+    ];
+  }
+  function finalBossLaserHitsPlayer(enemy) {
+    const range = 760, radius = 17;
+    const dx = Math.cos(enemy.laserAngle), dy = Math.sin(enemy.laserAngle);
+    return finalBossLaserEyes(enemy).some(eye => {
+      const px = player.x - eye.x, py = player.y - eye.y;
+      const along = px * dx + py * dy;
+      const across = Math.abs(px * dy - py * dx);
+      return along >= 0 && along <= range && across <= radius;
+    });
+  }
+  function drawFinalBossLasers(ctx, time) {
+    const boss = enemies.find(enemy => enemy.role === 'boss' && enemy.bossId === FINAL_BOSS_ID && enemy.enraged);
+    if (!boss || (boss.laserCharge <= 0 && boss.laserActive <= 0)) return;
+    const charging = boss.laserCharge > 0;
+    const pulse = .75 + Math.sin(time * .035) * .2;
+    const range = 760, dx = Math.cos(boss.laserAngle), dy = Math.sin(boss.laserAngle);
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (const eye of finalBossLaserEyes(boss)) {
+      const sx = eye.x - cameraX + world.size / 2, sy = eye.y - cameraY + world.size / 2;
+      const ex = sx + dx * range, ey = sy + dy * range;
+      if (charging) {
+        ctx.setLineDash([12, 9]);
+        ctx.strokeStyle = `rgba(255,91,79,${.48 + pulse * .2})`; ctx.lineWidth = 3 + pulse;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      } else {
+        ctx.setLineDash([]);
+        ctx.shadowColor = '#ff392f'; ctx.shadowBlur = 18;
+        ctx.strokeStyle = 'rgba(255,53,45,.42)'; ctx.lineWidth = 15;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#fff0c4'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawChicken(ctx, chicken, time) {
+    const sx = chicken.x - cameraX + world.size / 2;
+    const sy = chicken.y - cameraY + world.size / 2;
+    if (sx < -30 || sy < -30 || sx > gameWidth + 30 || sy > gameHeight + 30) return;
+    const bob = Math.sin(time * .012 + chicken.phase) * (chicken.fleeTimer > 0 || chicken.angry ? 1.8 : .7);
+    ctx.save();
+    ctx.translate(sx, sy + bob);
+    ctx.rotate(chicken.face);
+    ctx.fillStyle = 'rgba(45,74,55,.2)'; ctx.beginPath(); ctx.ellipse(0, 7, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
+    if (chicken.angry) {
+      ctx.fillStyle = 'rgba(255,50,45,.2)'; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = chicken.angry ? '#df5149' : '#fff8e5';
+    ctx.beginPath(); ctx.ellipse(-1, 1, 10, 7, -.1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = chicken.angry ? '#f07b68' : '#e8d8b4';
+    ctx.beginPath(); ctx.ellipse(-2, 1, 5, 5, -.25, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = chicken.angry ? '#f07862' : '#fff8e5';
+    ctx.beginPath(); ctx.arc(6, -3, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e85e55'; ctx.fillRect(4, -10, 2, 4); ctx.fillRect(7, -9, 2, 3);
+    ctx.fillStyle = '#efa84f'; ctx.beginPath(); ctx.moveTo(10, -3); ctx.lineTo(15, -1); ctx.lineTo(10, 1); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = chicken.angry ? '#fff7df' : '#35463d'; ctx.fillRect(7, -5, 2, 2);
+    ctx.fillStyle = '#d58a48'; ctx.fillRect(-4, 7, 2, 4); ctx.fillRect(2, 7, 2, 4);
     ctx.restore();
   }
 
@@ -1465,8 +1541,10 @@
     for (const idol of idolData) drawIdol(gameCtx, idol, time);
     drawFinalIdol(gameCtx, time);
     for (const enemy of enemies) drawEnemy(gameCtx, enemy, time);
+    drawFinalBossLasers(gameCtx, time);
     drawDolphin(gameCtx, time);
     drawShark(gameCtx, time);
+    for (const chicken of chickens) drawChicken(gameCtx, chicken, time);
     drawHero(gameCtx, time);
     drawConfetti(gameCtx);
   }
@@ -1494,6 +1572,97 @@
       if (dx * dx + dy * dy < radius * radius) return true;
     }
     return false;
+  }
+  function populateChickens() {
+    const spots = [];
+    const addCandidate = (tileX, tileY) => {
+      const x = tileX * world.size, y = tileY * world.size;
+      if (biomeAt(Math.floor(tileX), Math.floor(tileY)) === 'water' || collides(x, y)) return false;
+      if (Math.hypot(x - player.x, y - player.y) < 110) return false;
+      if (spots.some(spot => Math.hypot(x - spot.x, y - spot.y) < 48)) return false;
+      spots.push({ x, y });
+      return true;
+    };
+    const columns = 10, rows = 5;
+    for (let row = 0; row < rows; row++) for (let col = 0; col < columns; col++) {
+      for (let attempt = 0; attempt < 32; attempt++) {
+        const tileX = 4 + (col + hash(col + attempt * 13, row, 31)) * 10.4;
+        const tileY = 4 + (row + hash(row + attempt * 7, col, 47)) * 14.2;
+        if (addCandidate(tileX, tileY)) break;
+      }
+    }
+    for (let attempt = 0; spots.length < 50 && attempt < 8000; attempt++) {
+      const tileX = 4 + hash(attempt, 3, 73) * 104;
+      const tileY = 4 + hash(attempt, 9, 89) * 72;
+      addCandidate(tileX, tileY);
+    }
+    for (let i = 0; i < spots.length; i++) {
+      const spot = spots[i];
+      chickens.push({ ...spot, homeX: spot.x, homeY: spot.y, face: hash(i, 2, 97) * Math.PI * 2, phase: hash(i, 4, 101) * Math.PI * 2, fleeTimer: 0, fleeDX: 0, fleeDY: 0, angry: false });
+    }
+  }
+  populateChickens();
+  function chickenCanMove(x, y) {
+    return x >= 16 && y >= 16 && x <= world.width * world.size - 16 && y <= world.height * world.size - 16
+      && biomeAt(Math.floor(x / world.size), Math.floor(y / world.size)) !== 'water' && !collides(x, y);
+  }
+  function updateChickens(dt) {
+    for (const chicken of chickens) {
+      chicken.phase += dt * (chicken.angry ? 15 : 7);
+      const dxToPlayer = player.x - chicken.x, dyToPlayer = player.y - chicken.y;
+      const distance = Math.hypot(dxToPlayer, dyToPlayer) || 1;
+      let dx = 0, dy = 0, speed = 0;
+      if (chicken.angry) {
+        if (distance < 23) {
+          const survived = hurtPlayer();
+          chicken.angry = false;
+          chicken.fleeTimer = .8;
+          chicken.fleeDX = -dxToPlayer / distance;
+          chicken.fleeDY = -dyToPlayer / distance;
+          if (!survived) return;
+          showToast('The red chicken pecked you, then ran off!');
+          continue;
+        }
+        dx = dxToPlayer / distance; dy = dyToPlayer / distance; speed = 132;
+      } else {
+        if (distance < 112) {
+          chicken.fleeTimer = .65;
+          chicken.fleeDX = -dxToPlayer / distance;
+          chicken.fleeDY = -dyToPlayer / distance;
+        }
+        chicken.fleeTimer = Math.max(0, chicken.fleeTimer - dt);
+        if (chicken.fleeTimer <= 0) continue;
+        dx = chicken.fleeDX; dy = chicken.fleeDY; speed = 92;
+      }
+      const targetAngle = Math.atan2(dy, dx);
+      const turns = chicken.angry ? [0, -.45, .45, -.9, .9, -1.4, 1.4] : [0, .55, -.55, 1.1, -1.1, 1.7, -1.7];
+      let moved = false;
+      for (const turn of turns) {
+        const angle = targetAngle + turn;
+        const nextX = chicken.x + Math.cos(angle) * speed * dt;
+        const nextY = chicken.y + Math.sin(angle) * speed * dt;
+        if (!chickenCanMove(nextX, nextY)) continue;
+        chicken.x = nextX; chicken.y = nextY; chicken.face = angle; moved = true;
+        break;
+      }
+      if (!moved) chicken.face = targetAngle;
+    }
+  }
+  function bopChickens() {
+    let tagged = 0;
+    for (const chicken of chickens) {
+      if (chicken.angry || Math.hypot(player.x - chicken.x, player.y - chicken.y) > 31) continue;
+      chicken.angry = true;
+      chicken.fleeTimer = 0;
+      tagged++;
+    }
+    return tagged;
+  }
+  function resetChickens() {
+    for (const chicken of chickens) {
+      chicken.x = chicken.homeX; chicken.y = chicken.homeY;
+      chicken.fleeTimer = 0; chicken.fleeDX = 0; chicken.fleeDY = 0; chicken.angry = false;
+    }
   }
   function updateEnemyCount() {
     if (!activeBossId) {
@@ -1529,7 +1698,8 @@
     hud.hidden = false;
     $('#bossEmoji').textContent = idol.glyph;
     $('#bossBiome').textContent = finalFight ? 'FINAL CHALLENGE · ISLAND CENTER' : `${biomeData[idol.biome].title} · ${idol.bossTitle}`;
-    $('#bossName').textContent = boss ? idol.boss : `${idol.boss} is nearly a friend`;
+    $('#bossName').textContent = boss ? `${idol.boss}${boss.enraged ? ' · ENRAGED' : ''}` : `${idol.boss} is nearly a friend`;
+    if (finalFight && boss?.enraged) $('#bossBiome').textContent = 'ENRAGED · FINAL CHALLENGE';
     if (boss) {
       $('#bossHealthBar').style.width = `${Math.max(0, boss.health / boss.maxHealth * 100)}%`;
       $('#bossHealthLabel').textContent = `${boss.health} ${boss.health === 1 ? 'heart' : 'hearts'}`;
@@ -1576,7 +1746,7 @@
       enemies.push({ ...position, role: 'minion', guardianForm: true, bossId: guardian.biome, bossType: guardian.bossType, bossScale: .58, palette: guardian.palette, color: i, phase: Math.random() * 6, speed: 38 });
     }
     const bossPosition = spawnPosition(idolData.length, idolData.length + 1, 205);
-    enemies.push({ ...bossPosition, role: 'boss', bossId: FINAL_BOSS_ID, bossType: finalBossData.bossType, bossScale: 2.65, introProgress: 0, palette: finalBossData.palette, phase: Math.random() * 6, speed: 19, health: 12, maxHealth: 12, hitFlash: 0 });
+    enemies.push({ ...bossPosition, role: 'boss', bossId: FINAL_BOSS_ID, bossType: finalBossData.bossType, bossScale: 2.65, introProgress: 0, palette: finalBossData.palette, phase: Math.random() * 6, speed: 19, health: 12, maxHealth: 12, hitFlash: 0, enraged: false, laserCharge: 0, laserActive: 0, laserCooldown: 0 });
     nearbyIdolId = ''; pressed.clear();
     player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; player.moving = false;
     finalCinematicTimer = finalCinematicDuration; finalCinematicPhase = -1;
@@ -1662,6 +1832,10 @@
     launchConfetti();
     showToast('You won! The Island Titan is defeated!');
   }
+  $('#continueButton').addEventListener('click', () => {
+    $('#victoryBanner').hidden = true;
+    showToast('The island is safe! Keep exploring with your guardian friends.');
+  });
   function startDash() {
     if (!$('#playView').classList.contains('active') || finalCinematicTimer > 0 || player.ridingSlide || player.panicTimer > 0 || player.dolphinRideTimer > 0 || player.dashCooldown > 0 || player.dashTimer > 0) return;
     let dx = 0, dy = 0;
@@ -1691,11 +1865,44 @@
     button.textContent = player.panicTimer > 0 ? '❗ Run!' : player.ridingSlide ? '💦 Whee!' : player.dolphinRideTimer > 0 ? '🐬 Riding' : player.dashTimer > 0 ? '⚡ Go!' : cooling ? '⚡ …' : '⚡ Dash';
     button.title = player.panicTimer > 0 ? 'Run to shore!' : player.ridingSlide || player.dolphinRideTimer > 0 ? 'Enjoy the ride!' : cooling ? 'Dash is recharging' : 'Dash in the direction you are facing';
   }
+  function updateFinalBossAttack(enemy, dt) {
+    if (enemy.role !== 'boss' || enemy.bossId !== FINAL_BOSS_ID) return true;
+    if (!enemy.enraged && enemy.health <= enemy.maxHealth / 2) {
+      enemy.enraged = true;
+      enemy.speed = 46;
+      enemy.laserCooldown = .7;
+      updateBossHud();
+      showToast('The Island Titan is enraged! Watch for eye lasers!');
+    }
+    if (!enemy.enraged) return true;
+    if (enemy.laserActive > 0) {
+      if (finalBossLaserHitsPlayer(enemy) && !hurtPlayer()) return false;
+      enemy.laserActive = Math.max(0, enemy.laserActive - dt);
+      return true;
+    }
+    if (enemy.laserCharge > 0) {
+      enemy.laserCharge = Math.max(0, enemy.laserCharge - dt);
+      if (enemy.laserCharge === 0) {
+        enemy.laserActive = .32;
+        enemy.laserCooldown = 2.25;
+        showToast('The titan fires its eye lasers!');
+      }
+      return true;
+    }
+    enemy.laserCooldown = Math.max(0, enemy.laserCooldown - dt);
+    if (enemy.laserCooldown === 0) {
+      enemy.laserAngle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+      enemy.laserCharge = .85;
+      showToast('The titan is charging its eye lasers! Keep moving!');
+    }
+    return true;
+  }
   function updateEnemies(dt) {
     for (let i = enemies.length - 1; i >= 0; i--) {
       const enemy = enemies[i];
       enemy.phase += dt;
       enemy.hitFlash = Math.max(0, (enemy.hitFlash || 0) - dt);
+      if (!updateFinalBossAttack(enemy, dt)) return;
       if (enemy.knockbackTimer > 0) {
         const amount = Math.min(enemy.knockbackSpeed * dt, enemy.knockbackSpeed * enemy.knockbackTimer);
         const nextX = enemy.x + enemy.knockbackDX * amount, nextY = enemy.y + enemy.knockbackDY * amount;
@@ -1756,10 +1963,11 @@
         bopped++;
       }
     }
-    if (!bopped && !bossHits) return;
+    const chickensTagged = bopChickens();
+    if (!bopped && !bossHits && !chickensTagged) return;
     updateBossHud(); updateEnemyCount();
     if (finalBossKilled) { finishFinalBossFight(); return; }
-    if (enemies.length === 0) {
+    if (activeBossId && enemies.length === 0) {
       if (activeBossId === FINAL_BOSS_ID) finishFinalBossFight();
       else finishBossFight();
     }
@@ -1767,7 +1975,8 @@
       const bossName = activeBossId === FINAL_BOSS_ID ? finalBossData.boss : idolData.find(item => item.biome === activeBossId)?.boss;
       showToast(`Dash! ${bossName} has ${enemies.find(enemy => enemy.role === 'boss')?.health ?? 0} hearts left.`);
     }
-    else showToast(bopped === 1 ? 'Boop! One minion ran off.' : `Boop! ${bopped} minions ran off.`);
+    else if (bopped) showToast(bopped === 1 ? 'Boop! One minion ran off.' : `Boop! ${bopped} minions ran off.`);
+    else showToast(chickensTagged === 1 ? 'Cluck! That chicken is furious!' : `Cluck! ${chickensTagged} chickens are furious!`);
   }
   function updatePartyDance() {
     const tx = Math.floor(player.x / world.size), ty = Math.floor(player.y / world.size);
@@ -1924,6 +2133,7 @@
           updateSoccerHud();
           updateDolphinHud();
           updateEnemies(dt);
+          updateChickens(dt);
         }
       }
       if (finalCinematicTimer > 0) updateFinalCinematic(dt);
@@ -1981,6 +2191,7 @@
     player.x = 56 * 32; player.y = 40 * 32; player.face = 'down'; player.moving = false; player.inWater = false;
     player.health = maxPlayerHealth; player.damageCooldown = 0; player.healthRegenTimer = 0;
     player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0; player.dolphinRideTimer = 0; player.sharkScareCooldown = 0; player.panicTimer = 0; player.partyDancing = false; player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; enemies.length = 0;
+    resetChickens();
     shark.chasing = false; shark.x = shark.homeX; shark.y = shark.homeY;
     soccerBall.x = (soccerField.left + soccerField.right + 1) * world.size / 2; soccerBall.y = (soccerField.top + soccerField.bottom + 1) * world.size / 2;
     soccerBall.vx = 0; soccerBall.vy = 0; soccerBall.resetTimer = 0; soccerGoals = 0; soccerFieldWasActive = false;
@@ -1990,6 +2201,21 @@
     showToast(message);
   }
   $('#restartButton').addEventListener('click', () => resetGame());
+  function restartEverything() {
+    defeatedBosses.clear();
+    awakenedIdols.clear();
+    finalBossDefeated = false;
+    found.clear(); found.add('meadow');
+    $$('.discovery-item').forEach(item => item.classList.toggle('found', item.dataset.biome === 'meadow'));
+    $('#discoveryCount').innerHTML = '1 <small>/ 5</small>';
+    $('#discoveryProgress').style.width = '20%';
+    $('#victoryBanner').hidden = true;
+    confettiParticles.length = 0;
+    const existing = safeLoad();
+    safeSave({ ...existing, defeatedBosses: [], finalBossDefeated: false });
+    resetGame('A fresh adventure begins in the sunny meadow!');
+  }
+  $('#restartEverythingButton').addEventListener('click', restartEverything);
   $('#dashButton').addEventListener('click', startDash);
   $('#soccerKickButton').addEventListener('click', kickSoccerBall);
   $('#dolphinRideButton').addEventListener('click', startDolphinRide);
