@@ -1594,6 +1594,13 @@
     if (!platformMode || !platformer.grounded) return;
     platformer.vy = -470; platformer.grounded = false;
   }
+  function updateTouchPadMode(isPlatformer) {
+    $('#touchPad').classList.toggle('platform-controls', isPlatformer);
+    $('.pad-up').textContent = isPlatformer ? 'JUMP' : '↑';
+    $('.pad-up').setAttribute('aria-label', isPlatformer ? 'Jump' : 'Move up');
+    $('.pad-left').setAttribute('aria-label', isPlatformer ? 'Run left' : 'Move left');
+    $('.pad-right').setAttribute('aria-label', isPlatformer ? 'Run right' : 'Move right');
+  }
   function updatePlatformer(dt) {
     const right = pressed.has('ArrowRight') || pressed.has('KeyD');
     const left = pressed.has('ArrowLeft') || pressed.has('KeyA');
@@ -1698,6 +1705,7 @@
     platformer.coins = new Set(); platformer.cameraX = 0; platformer.nearExit = false;
     platformer.victoryWasVisible = !$('#victoryBanner').hidden;
     platformMode = true; pressed.clear();
+    updateTouchPadMode(true);
     gameViewport.classList.add('treehouse-active');
     $('#treehousePrompt').hidden = true; $('#treehouseHud').hidden = false;
     $('#gameHint').hidden = true; $('#playerHealth').hidden = true; $('#bossStatus').hidden = true;
@@ -1709,6 +1717,7 @@
   function exitTreehouse() {
     if (!platformMode) return;
     platformMode = false; pressed.clear();
+    updateTouchPadMode(false);
     gameViewport.classList.remove('treehouse-active');
     $('#treehouseHud').hidden = true; $('#gameHint').hidden = false;
     $('#playerHealth').hidden = false; $('.combat-controls').hidden = false; $('.map-stamp').hidden = false;
