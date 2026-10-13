@@ -1819,14 +1819,21 @@
   if ('ResizeObserver' in window) new ResizeObserver(resizeGame).observe(gameViewport);
   window.addEventListener('resize', resizeGame);
 
+  const obstacleCollisionShapes = {
+    tree: { x: 17, y: 23, radiusX: 8, radiusY: 7 },
+    pine: { x: 17, y: 24, radiusX: 8, radiusY: 7 },
+    cactus: { x: 18, y: 19, radiusX: 9, radiusY: 10 },
+    rock: { x: 17, y: 23, radiusX: 9, radiusY: 6 },
+    treehouse: { x: 16, y: 20, radiusX: 7, radiusY: 8 }
+  };
   function collides(x, y) {
     const tx = Math.floor(x / world.size), ty = Math.floor(y / world.size);
     for (let yy = ty - 1; yy <= ty + 1; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) {
       const o = obstacleAt(xx, yy); if (!o) continue;
-      const cx = xx * world.size + 16, cy = yy * world.size + 20;
+      const shape = obstacleCollisionShapes[o.type];
+      const cx = xx * world.size + shape.x, cy = yy * world.size + shape.y;
       const dx = x - cx, dy = y - cy;
-      const radius = o.type === 'rock' ? 10 : 11;
-      if (dx * dx + dy * dy < radius * radius) return true;
+      if ((dx * dx) / (shape.radiusX * shape.radiusX) + (dy * dy) / (shape.radiusY * shape.radiusY) < 1) return true;
     }
     return false;
   }
@@ -2347,8 +2354,8 @@
     const speed = panicking ? 240 : dashing ? 365 : player.dolphinRideTimer > 0 ? 330 : player.slideTimer > 0 ? 175 : player.inWater ? 90 : 115;
     const amount = speed * dt;
     const nextX = player.x + tx * amount, nextY = player.y + ty * amount;
-    if (!collides(nextX + world.size / 2, player.y + world.size / 2)) player.x = clamp(nextX, 15, world.width * world.size - 15);
-    if (!collides(player.x + world.size / 2, nextY + world.size / 2)) player.y = clamp(nextY, 15, world.height * world.size - 15);
+    if (!collides(nextX + world.size / 2, player.y + 27)) player.x = clamp(nextX, 15, world.width * world.size - 15);
+    if (!collides(player.x + world.size / 2, nextY + 27)) player.y = clamp(nextY, 15, world.height * world.size - 15);
     updatePartyDance();
     frameTime += dt * 1000;
     if (!played) {
