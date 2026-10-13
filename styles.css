@@ -87,9 +87,13 @@
 .play-layout:has(> .side-column[hidden]){grid-template-columns:minmax(0,1fr)}
 .game-view-controls{display:flex;align-items:center;gap:4px}
 .game-view-controls button{width:28px;height:28px;border:1px solid #eaede7;border-radius:8px;background:#fff;color:#62796a;font-size:17px;line-height:1}
+.zoom-percentage{height:28px;display:flex;align-items:center;gap:2px;padding:0 5px;border:1px solid #eaede7;border-radius:8px;background:#fff;color:#62796a;font-size:10px}
+.zoom-percentage input{width:34px;padding:0;border:0;outline:0;background:transparent;color:inherit;text-align:right;font-size:10px;font-variant-numeric:tabular-nums}
+.zoom-percentage input::-webkit-inner-spin-button,.zoom-percentage input::-webkit-outer-spin-button{margin:0;-webkit-appearance:none}
+.zoom-percentage:focus-within{border-color:#91ad96;box-shadow:0 0 0 2px #e7f0e6}
 .game-view-controls button:hover:not(:disabled){border-color:#a8bea8;background:#f4f8f1}
 .game-view-controls button:disabled{opacity:.45;cursor:default}
 #game-card:fullscreen{width:100vw;height:100vh;padding:18px 22px;background:var(--paper);display:flex;flex-direction:column;border:0;border-radius:0}
 #game-card:fullscreen .game-viewport{height:auto;min-height:0;flex:1}
 #game-card:fullscreen .game-bottomline{flex:none}
-@media(max-width:760px){.game-topline{gap:7px}.game-view-controls{gap:2px}.game-view-controls button{width:26px;height:26px}.game-topline .biome-pill{margin-left:auto}}
+@media(max-width:760px){.game-topline{gap:7px}.game-view-controls{gap:2px}.game-view-controls button{width:26px;height:26px}.zoom-percentage{height:26px;padding:0 3px}.zoom-percentage input{width:29px}.game-topline .biome-pill{margin-left:auto}}

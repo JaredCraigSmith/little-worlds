@@ -34,16 +34,25 @@
   const cropOverlay = $('#cropOverlay');
   const gameViewport = $('#gameViewport');
   let gameZoom = 1;
-  const minGameZoom = 0.75, maxGameZoom = 1.75;
+  const minGameZoom = 0.5, maxGameZoom = 2;
   function setGameZoom(nextZoom) {
-    gameZoom = Math.max(minGameZoom, Math.min(maxGameZoom, Math.round(nextZoom * 4) / 4));
+    gameZoom = Math.max(minGameZoom, Math.min(maxGameZoom, Math.round(nextZoom * 100) / 100));
     $('#zoomOutButton').disabled = gameZoom <= minGameZoom;
     $('#zoomInButton').disabled = gameZoom >= maxGameZoom;
+    $('#zoomPercentage').value = String(Math.round(gameZoom * 100));
     $('#zoomOutButton').title = `Zoom out (${Math.round(gameZoom * 100)}%)`;
     $('#zoomInButton').title = `Zoom in (${Math.round(gameZoom * 100)}%)`;
   }
   $('#zoomOutButton').addEventListener('click', () => setGameZoom(gameZoom - .25));
   $('#zoomInButton').addEventListener('click', () => setGameZoom(gameZoom + .25));
+  $('#zoomPercentage').addEventListener('change', event => {
+    const percentage = Number(event.currentTarget.value);
+    if (!Number.isFinite(percentage)) setGameZoom(gameZoom);
+    else setGameZoom(percentage / 100);
+  });
+  $('#zoomPercentage').addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); }
+  });
   $('#fullscreenButton').addEventListener('click', async () => {
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
@@ -57,6 +66,7 @@
     $('#fullscreenButton').title = active ? 'Exit fullscreen' : 'Enter fullscreen';
     resizeGame();
   });
+  setGameZoom(1);
   const maxPlayerHealth = 3;
   const playerHealthRegenDelay = 5, playerHealthRegenInterval = 4;
   const finalCinematicDuration = 4.8;
