@@ -33,6 +33,30 @@
   const cropStage = $('#cropStage');
   const cropOverlay = $('#cropOverlay');
   const gameViewport = $('#gameViewport');
+  let gameZoom = 1;
+  const minGameZoom = 0.75, maxGameZoom = 1.75;
+  function setGameZoom(nextZoom) {
+    gameZoom = Math.max(minGameZoom, Math.min(maxGameZoom, Math.round(nextZoom * 4) / 4));
+    $('#zoomOutButton').disabled = gameZoom <= minGameZoom;
+    $('#zoomInButton').disabled = gameZoom >= maxGameZoom;
+    $('#zoomOutButton').title = `Zoom out (${Math.round(gameZoom * 100)}%)`;
+    $('#zoomInButton').title = `Zoom in (${Math.round(gameZoom * 100)}%)`;
+  }
+  $('#zoomOutButton').addEventListener('click', () => setGameZoom(gameZoom - .25));
+  $('#zoomInButton').addEventListener('click', () => setGameZoom(gameZoom + .25));
+  $('#fullscreenButton').addEventListener('click', async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await $('#game-card').requestFullscreen();
+    } catch { /* Fullscreen can be unavailable in embedded browsers. */ }
+  });
+  document.addEventListener('fullscreenchange', () => {
+    const active = document.fullscreenElement === $('#game-card');
+    $('#fullscreenButton').textContent = active ? '⤢' : '⛶';
+    $('#fullscreenButton').setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
+    $('#fullscreenButton').title = active ? 'Exit fullscreen' : 'Enter fullscreen';
+    resizeGame();
+  });
   const maxPlayerHealth = 3;
   const playerHealthRegenDelay = 5, playerHealthRegenInterval = 4;
   const finalCinematicDuration = 4.8;
@@ -1724,14 +1748,16 @@
     if (platformMode) { drawPlatformer(gameCtx, time); return; }
     const cinematicElapsed = finalCinematicTimer > 0 ? finalCinematicDuration - finalCinematicTimer : 0;
     const shake = finalCinematicTimer > 0 ? Math.min(3.5, cinematicElapsed * 1.4) : 0;
-    cameraX = player.x - gameWidth / 2 + Math.sin(time * .061) * shake;
-    cameraY = player.y - gameHeight / 2 + Math.cos(time * .053) * shake * .6;
+    cameraX = player.x - gameWidth / (2 * gameZoom) + Math.sin(time * .061) * shake;
+    cameraY = player.y - gameHeight / (2 * gameZoom) + Math.cos(time * .053) * shake * .6;
     const left = Math.floor(cameraX / world.size) - 1;
     const top = Math.floor(cameraY / world.size) - 1;
-    const cols = Math.ceil(gameWidth / world.size) + 3;
-    const rows = Math.ceil(gameHeight / world.size) + 3;
+    const cols = Math.ceil(gameWidth / (gameZoom * world.size)) + 3;
+    const rows = Math.ceil(gameHeight / (gameZoom * world.size)) + 3;
+    gameCtx.setTransform(Math.min(window.devicePixelRatio || 1, 2), 0, 0, Math.min(window.devicePixelRatio || 1, 2), 0, 0);
     gameCtx.clearRect(0, 0, gameWidth, gameHeight);
     gameCtx.fillStyle = '#73b9cb'; gameCtx.fillRect(0, 0, gameWidth, gameHeight);
+    gameCtx.setTransform(Math.min(window.devicePixelRatio || 1, 2) * gameZoom, 0, 0, Math.min(window.devicePixelRatio || 1, 2) * gameZoom, Math.min(window.devicePixelRatio || 1, 2) * gameWidth * (1 - gameZoom) / 2, Math.min(window.devicePixelRatio || 1, 2) * gameHeight * (1 - gameZoom) / 2);
     for (let y = top; y < top + rows; y++) for (let x = left; x < left + cols; x++) {
       const sx = Math.floor(x * world.size - cameraX), sy = Math.floor(y * world.size - cameraY);
       drawGround(gameCtx, x, y, sx, sy, time);
