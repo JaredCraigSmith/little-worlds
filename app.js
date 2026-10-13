@@ -787,12 +787,7 @@
   const treehouse = { tx: 64, ty: 28, doorTx: 64, doorTy: 31 };
   let treehouseEntryArmed = true;
   let platformMode = false;
-  let platformer = { x: 48, y: 0, vx: 0, vy: 0, width: 24, height: 34, grounded: false, face: 1, coins: new Set(), cameraX: 0 };
-  const platformCoinLayout = [
-    [105, 44], [185, 82], [260, 120], [352, 52], [438, 112], [536, 158],
-    [650, 58], [744, 112], [850, 188], [978, 72], [1082, 128], [1190, 185],
-    [1315, 92], [1450, 58]
-  ];
+  let platformer = { x: 48, y: 0, vx: 0, vy: 0, width: 24, height: 34, grounded: false, face: 1, cameraX: 0 };
   const waterSlide = {
     points: [[53, 34], [53, 35], [54, 36], [55, 37], [55, 38], [54, 39], [53, 40], [52, 41], [51, 42]]
       .map(([tx, ty]) => ({ x: tx * world.size, y: ty * world.size }))
@@ -1592,13 +1587,6 @@
       { x: 1385, y: floor - 104, width: 160 }
     ];
   }
-  function platformCoinPosition(index) {
-    const floor = platformFloorY(), [x, rise] = platformCoinLayout[index];
-    return { x, y: floor - rise };
-  }
-  function updatePlatformCoinCount() {
-    $('#treehouseCoinCount').textContent = `🪙 ${platformer.coins.size} / ${platformCoinLayout.length}`;
-  }
   function jumpPlatformer() {
     if (!platformMode || !platformer.grounded) return;
     platformer.vy = -470; platformer.grounded = false;
@@ -1630,17 +1618,10 @@
         platformer.y = ledge.y - platformer.height; platformer.vy = 0; platformer.grounded = true; break;
       }
     }
-    const heroX = platformer.x + platformer.width / 2, heroY = platformer.y + platformer.height / 2;
-    for (let i = 0; i < platformCoinLayout.length; i++) {
-      if (platformer.coins.has(i)) continue;
-      const coin = platformCoinPosition(i);
-      if (Math.hypot(heroX - coin.x, heroY - coin.y) < 27) {
-        platformer.coins.add(i); updatePlatformCoinCount();
-        showToast('You found a treehouse coin!');
-      }
-    }
     const exitX = platformer.levelWidth - 66;
-    platformer.nearExit = platformer.x + platformer.width / 2 > exitX - 48;
+    const doorLeft = exitX - 24, doorRight = exitX + 24, doorTop = floor - 82;
+    const touchesExitDoor = platformer.x < doorRight && platformer.x + platformer.width > doorLeft && platformer.y < floor && platformer.y + platformer.height > doorTop;
+    if (touchesExitDoor) { exitTreehouse(); return; }
     platformer.cameraX = clamp(platformer.x - gameWidth * .36, 0, platformer.levelWidth - gameWidth);
   }
   function drawPlatformer(ctx, time) {
@@ -1669,14 +1650,6 @@
       ctx.fillStyle = '#6d4933'; ctx.fillRect(ledge.x, ledge.y + 7, ledge.width, 15);
       ctx.fillStyle = '#c1854e'; ctx.fillRect(ledge.x, ledge.y, ledge.width, 10);
       ctx.fillStyle = '#edc181'; ctx.fillRect(ledge.x, ledge.y, ledge.width, 3);
-    }
-    for (let i = 0; i < platformCoinLayout.length; i++) {
-      if (platformer.coins.has(i)) continue;
-      const coin = platformCoinPosition(i), bob = Math.sin(time * .006 + i) * 4;
-      ctx.fillStyle = 'rgba(110,74,35,.2)'; ctx.beginPath(); ctx.ellipse(coin.x, coin.y + 12 + bob, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#d39132'; ctx.beginPath(); ctx.arc(coin.x, coin.y + bob, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#ffd968'; ctx.beginPath(); ctx.arc(coin.x, coin.y + bob, 6, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#fff1a6'; ctx.fillRect(coin.x - 2, coin.y - 4 + bob, 2, 5);
     }
     const exitX = levelWidth - 66;
     ctx.fillStyle = '#654832'; ctx.fillRect(exitX - 24, floor - 82, 48, 82);
@@ -1720,29 +1693,25 @@
     platformer.levelWidth = Math.max(1640, gameWidth * 2.1);
     platformer.x = 48; platformer.y = platformFloorY() - platformer.height;
     platformer.vx = 0; platformer.vy = 0; platformer.grounded = true; platformer.face = 1;
-    platformer.coins = new Set(); platformer.cameraX = 0; platformer.nearExit = false;
+    platformer.cameraX = 0;
     platformer.victoryWasVisible = !$('#victoryBanner').hidden;
     platformMode = true; pressed.clear();
     updateTouchPadMode(true);
     gameViewport.classList.add('treehouse-active');
-    $('#treehouseHud').hidden = false;
     $('#gameHint').hidden = true; $('#playerHealth').hidden = true; $('#bossStatus').hidden = true;
     $('.combat-controls').hidden = true; $('.map-stamp').hidden = true;
     $('#victoryBanner').hidden = true;
-    updatePlatformCoinCount();
-    showToast('Welcome to the treehouse! Find the coins and head for the exit.');
   }
   function exitTreehouse() {
     if (!platformMode) return;
     platformMode = false; pressed.clear();
     updateTouchPadMode(false);
     gameViewport.classList.remove('treehouse-active');
-    $('#treehouseHud').hidden = true; $('#gameHint').hidden = false;
+    $('#gameHint').hidden = false;
     $('#playerHealth').hidden = false; $('.combat-controls').hidden = false; $('.map-stamp').hidden = false;
     if (platformer.victoryWasVisible) $('#victoryBanner').hidden = false;
     updateBossHud(); updateDashButton(); updateSoccerHud(); updateDolphinHud();
     updateTreehouseProximity();
-    showToast('You stepped outside the treehouse.');
   }
 
   function launchConfetti() {
@@ -2450,15 +2419,8 @@
     if (event.target.matches('input,textarea,select,[contenteditable="true"]')) return;
     const key = event.code;
     if ($('#playView').classList.contains('active') && platformMode) {
-      if (key === 'Escape') { event.preventDefault(); exitTreehouse(); return; }
       if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(key)) { event.preventDefault(); pressed.add(key); return; }
       if (['Space', 'ArrowUp', 'KeyW'].includes(key)) { event.preventDefault(); if (!event.repeat) jumpPlatformer(); return; }
-      if (key === 'KeyE') {
-        event.preventDefault();
-        if (platformer.nearExit) exitTreehouse();
-        else showToast('The exit is at the far end of the treehouse.');
-        return;
-      }
       return;
     }
     if ($('#playView').classList.contains('active') && key === 'KeyF') {
@@ -2527,8 +2489,6 @@
     resetGame('A fresh adventure begins in the sunny meadow!');
   }
   $('#restartEverythingButton').addEventListener('click', restartEverything);
-  $('#platformJumpButton').addEventListener('click', jumpPlatformer);
-  $('#exitTreehouseButton').addEventListener('click', exitTreehouse);
   let lastTouchDashAt = 0;
   $('#dashButton').addEventListener('pointerdown', event => {
     if (event.pointerType !== 'touch') return;
