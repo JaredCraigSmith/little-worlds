@@ -788,6 +788,11 @@
   let treehouseEntryArmed = true;
   let platformMode = false;
   let platformer = { x: 48, y: 0, vx: 0, vy: 0, width: 24, height: 34, grounded: false, face: 1, cameraX: 0 };
+  const platformCoinLayout = [
+    [105, 44], [185, 82], [260, 120], [352, 52], [438, 112], [536, 158],
+    [650, 58], [744, 112], [850, 188], [978, 72], [1082, 128], [1190, 185],
+    [1315, 92], [1450, 58]
+  ];
   const waterSlide = {
     points: [[53, 34], [53, 35], [54, 36], [55, 37], [55, 38], [54, 39], [53, 40], [52, 41], [51, 42]]
       .map(([tx, ty]) => ({ x: tx * world.size, y: ty * world.size }))
@@ -865,7 +870,7 @@
     if (waterSlide.points.some(point => Math.abs(tx - Math.floor(point.x / world.size)) <= 1 && Math.abs(ty - Math.floor(point.y / world.size)) <= 1)) return null;
     if (tx >= danceParty.left - 1 && tx <= danceParty.right + 1 && ty >= danceParty.top - 1 && ty <= danceParty.bottom + 1) return null;
     if (tx >= soccerField.left - 1 && tx <= soccerField.right + 1 && ty >= soccerField.top - 1 && ty <= soccerField.bottom + 1) return null;
-    if (tx >= treehouse.tx - 3 && tx <= treehouse.tx + 3 && ty >= treehouse.ty - 2 && ty <= treehouse.ty + 2 && !(tx === treehouse.tx && ty === treehouse.ty + 2)) return { type: 'treehouse' };
+    if (tx >= treehouse.tx - 2 && tx <= treehouse.tx + 2 && ty >= treehouse.ty + 1 && ty <= treehouse.ty + 2 && !(ty === treehouse.ty + 2 && Math.abs(tx - treehouse.tx) <= 1)) return { type: 'treehouse' };
     const value = hash(tx, ty, 4);
     if (biome === 'forest' && value < .15) return { type: 'tree', biome };
     if (biome === 'snow' && value < .1) return { type: 'pine', biome };
@@ -1651,6 +1656,13 @@
       ctx.fillStyle = '#c1854e'; ctx.fillRect(ledge.x, ledge.y, ledge.width, 10);
       ctx.fillStyle = '#edc181'; ctx.fillRect(ledge.x, ledge.y, ledge.width, 3);
     }
+    for (let i = 0; i < platformCoinLayout.length; i++) {
+      const [coinX, rise] = platformCoinLayout[i], coinY = floor - rise, bob = Math.sin(time * .006 + i) * 4;
+      ctx.fillStyle = 'rgba(110,74,35,.2)'; ctx.beginPath(); ctx.ellipse(coinX, coinY + 12 + bob, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d39132'; ctx.beginPath(); ctx.arc(coinX, coinY + bob, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffd968'; ctx.beginPath(); ctx.arc(coinX, coinY + bob, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff1a6'; ctx.fillRect(coinX - 2, coinY - 4 + bob, 2, 5);
+    }
     const exitX = levelWidth - 66;
     ctx.fillStyle = '#654832'; ctx.fillRect(exitX - 24, floor - 82, 48, 82);
     ctx.fillStyle = '#d89a5b'; ctx.fillRect(exitX - 19, floor - 76, 38, 76);
@@ -2325,8 +2337,8 @@
     const speed = panicking ? 240 : dashing ? 365 : player.dolphinRideTimer > 0 ? 330 : player.slideTimer > 0 ? 175 : player.inWater ? 90 : 115;
     const amount = speed * dt;
     const nextX = player.x + tx * amount, nextY = player.y + ty * amount;
-    if (!collides(nextX, player.y)) player.x = clamp(nextX, 15, world.width * world.size - 15);
-    if (!collides(player.x, nextY)) player.y = clamp(nextY, 15, world.height * world.size - 15);
+    if (!collides(nextX + world.size / 2, player.y + world.size / 2)) player.x = clamp(nextX, 15, world.width * world.size - 15);
+    if (!collides(player.x + world.size / 2, nextY + world.size / 2)) player.y = clamp(nextY, 15, world.height * world.size - 15);
     updatePartyDance();
     frameTime += dt * 1000;
     if (!played) {
