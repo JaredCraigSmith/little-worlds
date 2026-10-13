@@ -2456,12 +2456,19 @@
   window.addEventListener('blur', () => pressed.clear());
   $$('.pad-key').forEach(button => {
     const key = button.dataset.key;
-    const down = event => { event.preventDefault(); if (platformMode && key === 'ArrowUp') jumpPlatformer(); else pressed.add(key); button.classList.add('held'); };
-    const up = event => { event.preventDefault(); pressed.delete(key); button.classList.remove('held'); };
+    const down = event => {
+      event.preventDefault();
+      try { button.setPointerCapture(event.pointerId); } catch { /* Pointer capture may be unavailable in older browsers. */ }
+      if (platformMode && key === 'ArrowUp') jumpPlatformer(); else pressed.add(key);
+      button.classList.add('held');
+    };
+    const up = event => {
+      event.preventDefault(); pressed.delete(key); button.classList.remove('held');
+      try { if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId); } catch { /* The pointer may already have been released. */ }
+    };
     button.addEventListener('pointerdown', down);
     button.addEventListener('pointerup', up);
     button.addEventListener('pointercancel', up);
-    button.addEventListener('pointerleave', up);
     button.addEventListener('contextmenu', event => event.preventDefault());
   });
   function resetGame(message = 'Back in the sunny meadow.') {
@@ -2502,7 +2509,17 @@
   $('#enterTreehouseButton').addEventListener('click', enterTreehouse);
   $('#platformJumpButton').addEventListener('click', jumpPlatformer);
   $('#exitTreehouseButton').addEventListener('click', exitTreehouse);
-  $('#dashButton').addEventListener('click', startDash);
+  let lastTouchDashAt = 0;
+  $('#dashButton').addEventListener('pointerdown', event => {
+    if (event.pointerType !== 'touch') return;
+    event.preventDefault();
+    lastTouchDashAt = performance.now();
+    startDash();
+  });
+  $('#dashButton').addEventListener('click', () => {
+    if (performance.now() - lastTouchDashAt < 500) return;
+    startDash();
+  });
   $('#soccerKickButton').addEventListener('click', kickSoccerBall);
   $('#dolphinRideButton').addEventListener('click', startDolphinRide);
 

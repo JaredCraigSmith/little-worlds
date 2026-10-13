@@ -102,3 +102,4 @@
 @media(max-width:760px){.game-topline{gap:7px}.game-view-controls{gap:2px}.game-view-controls button{width:26px;height:26px}.zoom-percentage{height:26px;padding:0 3px}.zoom-percentage input{width:29px}.game-topline .biome-pill{margin-left:auto}}
 @media(max-width:760px){.side-column{grid-template-columns:1fr 1fr}.character-card{grid-column:1/-1;grid-row:auto}}
 @media(any-pointer:coarse){.game-viewport .map-stamp{display:none}.game-viewport .touch-pad{display:grid;position:absolute;z-index:8;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));grid-template-columns:repeat(3,42px);grid-template-rows:repeat(2,42px);gap:4px}}
+.game-viewport .dash-button{touch-action:none}
