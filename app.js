@@ -11,7 +11,7 @@
     forest: { title: 'Pinecone Forest', emoji: '🌲', message: 'A forest! Can you spot a pinecone?' },
     snow: { title: 'Snowy Nook', emoji: '❄️', message: 'A snowy place! Brrr, but cozy.' },
     desert: { title: 'Sunbeam Desert', emoji: '☀️', message: 'A sandy desert! Look for a cactus.' },
-    beach: { title: 'Sandy Shore', emoji: '🏖️', message: 'A beach! The water is just ahead.' },
+    beach: { title: 'Sandy Shore', emoji: '🏖️' },
     water: { title: 'Splashy Blue', emoji: '💧', message: 'You can swim! The water feels lovely.' }
   };
   const idolData = [
@@ -785,6 +785,7 @@
   }
   const world = { width: 112, height: 80, size: 32 };
   const treehouse = { tx: 64, ty: 28, doorTx: 64, doorTy: 31 };
+  let treehouseEntryArmed = true;
   let platformMode = false;
   let platformer = { x: 48, y: 0, vx: 0, vy: 0, width: 24, height: 34, grounded: false, face: 1, coins: new Set(), cameraX: 0 };
   const platformCoinLayout = [
@@ -801,6 +802,7 @@
   const soccerField = { left: 27, right: 35, top: 38, bottom: 42, goalHalf: 38 };
   const dolphin = { x: 110 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
   const dolphinRideDuration = 10;
+  let dolphinRideArmed = true;
   const shark = { x: world.size * .875, y: 40 * world.size + world.size / 2, homeX: world.size * .875, homeY: 40 * world.size + world.size / 2, chasing: false };
   const sharkFearRadius = 180;
   const soccerBall = {
@@ -1270,7 +1272,7 @@
     player.inWater = biomeAt(Math.floor(player.x / world.size), Math.floor(player.y / world.size)) === 'water';
     player.partyDancing = false;
     $('#gameHint').classList.add('gone');
-    showToast('Hold a direction to ride the dolphin fast! 10 seconds.');
+    showToast('You’re riding the dolphin! Move in any direction to zip around for 10 seconds.');
     updateDashButton();
     updateDolphinHud();
   }
@@ -1278,10 +1280,17 @@
   function updateDolphinHud() {
     const button = $('#dolphinRideButton');
     const riding = player.dolphinRideTimer > 0;
-    button.hidden = !riding && !isDolphinInReach();
-    button.disabled = riding;
-    button.textContent = riding ? `🐬 ${Math.ceil(player.dolphinRideTimer)}s` : '🐬 Ride (E)';
-    button.title = riding ? 'The dolphin ride ends after 10 seconds' : 'Ride the fast dolphin for 10 seconds (E)';
+    const inReach = isDolphinInReach();
+    if (!riding && !inReach) dolphinRideArmed = true;
+    if (!riding && inReach && dolphinRideArmed && $('#playView').classList.contains('active')
+      && !platformMode && !player.ridingSlide && player.panicTimer <= 0 && finalCinematicTimer <= 0) {
+      dolphinRideArmed = false;
+      startDolphinRide();
+      return;
+    }
+    button.hidden = !riding;
+    button.textContent = riding ? `🐬 Riding · ${Math.ceil(player.dolphinRideTimer)}s` : '';
+    button.title = riding ? 'The dolphin ride ends after 10 seconds' : '';
   }
 
   function hurtPlayer() {
@@ -1689,16 +1698,25 @@
     }
     ctx.restore(); ctx.restore();
   }
-  function updateTreehousePrompt() {
+  function isNearTreehouseDoor() {
     const doorX = treehouse.doorTx * world.size + world.size / 2;
     const doorY = treehouse.doorTy * world.size + world.size / 2;
-    const nearDoor = !platformMode && !activeBossId && finalCinematicTimer <= 0
-      && Math.hypot(player.x + world.size / 2 - doorX, player.y + world.size / 2 - doorY) < 64;
-    $('#treehousePrompt').hidden = !nearDoor;
+    return Math.hypot(player.x + world.size / 2 - doorX, player.y + world.size / 2 - doorY) < 64;
+  }
+  function updateTreehouseProximity() {
+    const doorX = treehouse.doorTx * world.size + world.size / 2;
+    const doorY = treehouse.doorTy * world.size + world.size / 2;
+    const distance = Math.hypot(player.x + world.size / 2 - doorX, player.y + world.size / 2 - doorY);
+    const nearDoor = distance < 64;
+    if (distance > 112) treehouseEntryArmed = true;
+    if (!platformMode && !activeBossId && finalCinematicTimer <= 0 && nearDoor && treehouseEntryArmed) {
+      treehouseEntryArmed = false;
+      enterTreehouse();
+    }
     return nearDoor;
   }
   function enterTreehouse() {
-    if (!updateTreehousePrompt()) return;
+    if (platformMode || activeBossId || finalCinematicTimer > 0 || !isNearTreehouseDoor()) return;
     platformer.levelWidth = Math.max(1640, gameWidth * 2.1);
     platformer.x = 48; platformer.y = platformFloorY() - platformer.height;
     platformer.vx = 0; platformer.vy = 0; platformer.grounded = true; platformer.face = 1;
@@ -1707,7 +1725,7 @@
     platformMode = true; pressed.clear();
     updateTouchPadMode(true);
     gameViewport.classList.add('treehouse-active');
-    $('#treehousePrompt').hidden = true; $('#treehouseHud').hidden = false;
+    $('#treehouseHud').hidden = false;
     $('#gameHint').hidden = true; $('#playerHealth').hidden = true; $('#bossStatus').hidden = true;
     $('.combat-controls').hidden = true; $('.map-stamp').hidden = true;
     $('#victoryBanner').hidden = true;
@@ -1723,7 +1741,7 @@
     $('#playerHealth').hidden = false; $('.combat-controls').hidden = false; $('.map-stamp').hidden = false;
     if (platformer.victoryWasVisible) $('#victoryBanner').hidden = false;
     updateBossHud(); updateDashButton(); updateSoccerHud(); updateDolphinHud();
-    updateTreehousePrompt();
+    updateTreehouseProximity();
     showToast('You stepped outside the treehouse.');
   }
 
@@ -2313,7 +2331,7 @@
     if (player.ridingSlide) { rideWaterSlide(dt); return; }
     if (player.dolphinRideTimer > 0) {
       player.dolphinRideTimer = Math.max(0, player.dolphinRideTimer - dt);
-      if (player.dolphinRideTimer === 0) showToast('Dolphin ride finished. Find it on the east shore for another ride!');
+      if (player.dolphinRideTimer === 0) showToast('Dolphin ride finished. Move away, then come close again for another ride!');
     }
     updatePartyDance();
     const panicking = player.panicTimer > 0;
@@ -2382,7 +2400,7 @@
         $('#discoveryCount').innerHTML = `${found.size} <small>/ 5</small>`;
         $('#discoveryProgress').style.width = `${found.size * 20}%`;
         showToast(info.message);
-      } else if (biome === 'beach') showToast(info.message);
+      }
     }
     lastBiome = biome;
   }
@@ -2410,7 +2428,7 @@
           updateChickens(dt);
         }
       }
-      if (!platformMode) updateTreehousePrompt();
+      if (!platformMode) updateTreehouseProximity();
       if (finalCinematicTimer > 0) updateFinalCinematic(dt);
       updateConfetti(dt);
       renderWorld(time);
@@ -2443,14 +2461,8 @@
       }
       return;
     }
-    if ($('#playView').classList.contains('active') && key === 'KeyE' && updateTreehousePrompt()) {
-      event.preventDefault(); enterTreehouse(); return;
-    }
     if ($('#playView').classList.contains('active') && key === 'KeyF') {
       event.preventDefault(); if (!event.repeat) kickSoccerBall(); return;
-    }
-    if ($('#playView').classList.contains('active') && key === 'KeyE') {
-      event.preventDefault(); if (!event.repeat) startDolphinRide(); return;
     }
     if ($('#playView').classList.contains('active') && ['Space', 'ShiftLeft', 'ShiftRight'].includes(key)) {
       event.preventDefault(); startDash(); return;
@@ -2515,7 +2527,6 @@
     resetGame('A fresh adventure begins in the sunny meadow!');
   }
   $('#restartEverythingButton').addEventListener('click', restartEverything);
-  $('#enterTreehouseButton').addEventListener('click', enterTreehouse);
   $('#platformJumpButton').addEventListener('click', jumpPlatformer);
   $('#exitTreehouseButton').addEventListener('click', exitTreehouse);
   let lastTouchDashAt = 0;
@@ -2530,7 +2541,6 @@
     startDash();
   });
   $('#soccerKickButton').addEventListener('click', kickSoccerBall);
-  $('#dolphinRideButton').addEventListener('click', startDolphinRide);
 
   // Optional sound is synthesized locally: a few gentle, short notes, with no downloaded audio.
   function playNote(frequency, duration, volume) {
