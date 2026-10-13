@@ -787,7 +787,7 @@
   const treehouse = { tx: 64, ty: 28, doorTx: 64, doorTy: 31 };
   let treehouseEntryArmed = true;
   let platformMode = false;
-  let platformer = { x: 48, y: 0, vx: 0, vy: 0, width: 24, height: 34, grounded: false, face: 1, cameraX: 0 };
+  let platformer = { x: 48, y: 0, vx: 0, vy: 0, width: 24, height: 34, grounded: false, face: 1, cameraX: 0, collectedCoins: new Set() };
   const platformCoinLayout = [
     [105, 44], [185, 82], [260, 120], [352, 52], [438, 112], [536, 158],
     [650, 58], [744, 112], [850, 188], [978, 72], [1082, 128], [1190, 185],
@@ -1623,6 +1623,15 @@
         platformer.y = ledge.y - platformer.height; platformer.vy = 0; platformer.grounded = true; break;
       }
     }
+    const heroX = platformer.x + platformer.width / 2, heroY = platformer.y + platformer.height / 2;
+    for (let i = 0; i < platformCoinLayout.length; i++) {
+      if (platformer.collectedCoins.has(i)) continue;
+      const [coinX, rise] = platformCoinLayout[i];
+      if (Math.abs(heroX - coinX) <= platformer.width / 2 + 10 && Math.abs(heroY - (floor - rise)) <= platformer.height / 2 + 10) {
+        platformer.collectedCoins.add(i);
+        showToast('Coin collected!');
+      }
+    }
     const exitX = platformer.levelWidth - 66;
     const doorLeft = exitX - 24, doorRight = exitX + 24, doorTop = floor - 82;
     const touchesExitDoor = platformer.x < doorRight && platformer.x + platformer.width > doorLeft && platformer.y < floor && platformer.y + platformer.height > doorTop;
@@ -1657,6 +1666,7 @@
       ctx.fillStyle = '#edc181'; ctx.fillRect(ledge.x, ledge.y, ledge.width, 3);
     }
     for (let i = 0; i < platformCoinLayout.length; i++) {
+      if (platformer.collectedCoins.has(i)) continue;
       const [coinX, rise] = platformCoinLayout[i], coinY = floor - rise, bob = Math.sin(time * .006 + i) * 4;
       ctx.fillStyle = 'rgba(110,74,35,.2)'; ctx.beginPath(); ctx.ellipse(coinX, coinY + 12 + bob, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#d39132'; ctx.beginPath(); ctx.arc(coinX, coinY + bob, 9, 0, Math.PI * 2); ctx.fill();
@@ -1705,7 +1715,7 @@
     platformer.levelWidth = Math.max(1640, gameWidth * 2.1);
     platformer.x = 48; platformer.y = platformFloorY() - platformer.height;
     platformer.vx = 0; platformer.vy = 0; platformer.grounded = true; platformer.face = 1;
-    platformer.cameraX = 0;
+    platformer.cameraX = 0; platformer.collectedCoins.clear();
     platformer.victoryWasVisible = !$('#victoryBanner').hidden;
     platformMode = true; pressed.clear();
     updateTouchPadMode(true);
