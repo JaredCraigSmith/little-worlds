@@ -80,6 +80,8 @@
   const finalCinematicDuration = 4.8;
   const player = { x: 56 * 32, y: 40 * 32, face: 'down', walkTime: 0, moving: false, inWater: false, health: maxPlayerHealth, damageCooldown: 0, healthRegenTimer: 0, partyDancing: false, slideTimer: 0, slideDX: 0, slideDY: 1, ridingSlide: false, slideProgress: 0, dolphinRideTimer: 0, sharkScareCooldown: 0, panicTimer: 0, panicDX: 1, panicDY: 0, dashTimer: 0, dashCooldown: 0, dashDX: 0, dashDY: 1, dashHitBoss: false };
   const pressed = new Set();
+  const keyboardPressed = new Set();
+  const activePadPointers = new Map();
   const enemies = [];
   const chickens = [];
   const found = new Set(['meadow']);
@@ -273,6 +275,29 @@
   $('#smallPrintButton').addEventListener('click', openPrint);
   $('#studioPrintButton').addEventListener('click', () => { openPrint(); showStepTwo(); });
 
+  function clearMovementInput() {
+    pressed.clear();
+    keyboardPressed.clear();
+    const activePointers = [...activePadPointers.entries()];
+    activePadPointers.clear();
+    for (const [pointerId, control] of activePointers) {
+      control.button.classList.remove('held');
+      try {
+        if (control.button.hasPointerCapture(pointerId)) control.button.releasePointerCapture(pointerId);
+      } catch { /* The pointer may already have been released by the browser. */ }
+    }
+  }
+
+  function pressKeyboardKey(key) {
+    keyboardPressed.add(key);
+    pressed.add(key);
+  }
+
+  function releaseKeyboardKey(key) {
+    keyboardPressed.delete(key);
+    if (![...activePadPointers.values()].some(control => !control.jump && control.key === key)) pressed.delete(key);
+  }
+
   function showView(view) {
     for (const name of ['home', 'play', 'studio']) {
       const section = $(`#${name}View`);
@@ -281,7 +306,7 @@
       section.hidden = !active;
     }
     $$('.nav-button').forEach(button => button.classList.toggle('active', button.dataset.view === view));
-    pressed.clear();
+    clearMovementInput();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (view === 'play') {
       resizeGame();
@@ -1198,7 +1223,7 @@
       player.panicTimer = 4;
       player.panicDX = 1; player.panicDY = 0; player.face = 'right';
       player.dashTimer = 0; player.dashCooldown = 0; player.dolphinRideTimer = 0; player.sharkScareCooldown = 2;
-      pressed.clear();
+      clearMovementInput();
       updateDashButton(); updateDolphinHud();
       showToast('A shark is chasing you! Run to the west shore!');
     }
@@ -1750,7 +1775,7 @@
     platformer.vx = 0; platformer.vy = 0; platformer.grounded = true; platformer.face = 1;
     platformer.cameraX = 0; platformer.collectedCoins.clear();
     platformer.victoryWasVisible = !$('#victoryBanner').hidden;
-    platformMode = true; pressed.clear();
+    platformMode = true; clearMovementInput();
     updateTouchPadMode(true);
     gameViewport.classList.add('treehouse-active');
     $('#gameHint').hidden = true; $('#playerHealth').hidden = true; $('#bossStatus').hidden = true;
@@ -1759,7 +1784,7 @@
   }
   function exitTreehouse() {
     if (!platformMode) return;
-    platformMode = false; pressed.clear();
+    platformMode = false; clearMovementInput();
     updateTouchPadMode(false);
     gameViewport.classList.remove('treehouse-active');
     $('#gameHint').hidden = false;
@@ -2068,7 +2093,7 @@
     }
     const bossPosition = spawnPosition(idolData.length, idolData.length + 1, 205);
     enemies.push({ ...bossPosition, role: 'boss', bossId: FINAL_BOSS_ID, bossType: finalBossData.bossType, bossScale: 2.65, introProgress: 0, palette: finalBossData.palette, phase: Math.random() * 6, speed: 19, health: 12, maxHealth: 12, hitFlash: 0, enraged: false, laserCharge: 0, laserActive: 0, laserCooldown: 0 });
-    nearbyIdolId = ''; pressed.clear();
+    nearbyIdolId = ''; clearMovementInput();
     player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; player.moving = false;
     finalCinematicTimer = finalCinematicDuration; finalCinematicPhase = -1;
     $('#finalCinematic').hidden = false;
@@ -2098,7 +2123,7 @@
       const copy = $('#finalCinematicCopy');
       copy.classList.remove('reveal'); void copy.offsetWidth; copy.classList.add('reveal');
     }
-    pressed.clear();
+    clearMovementInput();
     if (finalCinematicTimer === 0) {
       $('#finalCinematic').hidden = true;
       finalCinematicPhase = -1;
@@ -2406,7 +2431,7 @@
     updateBiome(biome);
     if (enteredWater) showToast('You slide into the water! Splash!');
     if (panicking && !nextWater) {
-      player.panicTimer = 0; player.sharkScareCooldown = 1.5; pressed.clear();
+      player.panicTimer = 0; player.sharkScareCooldown = 1.5; clearMovementInput();
       showToast('You made it safely to shore!');
     }
     if (!dashing && player.panicTimer <= 0 && player.dolphinRideTimer <= 0 && startWaterSlide()) { updateDashButton(); return; }
@@ -2481,7 +2506,7 @@
     if (event.target.matches('input,textarea,select,[contenteditable="true"]')) return;
     const key = event.code;
     if ($('#playView').classList.contains('active') && platformMode) {
-      if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(key)) { event.preventDefault(); pressed.add(key); return; }
+      if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(key)) { event.preventDefault(); pressKeyboardKey(key); return; }
       if (['Space', 'ArrowUp', 'KeyW'].includes(key)) { event.preventDefault(); if (!event.repeat) jumpPlatformer(); return; }
       return;
     }
@@ -2492,28 +2517,41 @@
       event.preventDefault(); startDash(); return;
     }
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(key) && $('#playView').classList.contains('active')) {
-      event.preventDefault(); pressed.add(key);
+      event.preventDefault(); pressKeyboardKey(key);
     }
   }
-  function onKeyUp(event) { pressed.delete(event.code); }
+  function onKeyUp(event) { releaseKeyboardKey(event.code); }
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
-  window.addEventListener('blur', () => pressed.clear());
+  window.addEventListener('blur', clearMovementInput);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) clearMovementInput(); });
   $$('.pad-key').forEach(button => {
     const key = button.dataset.key;
     const down = event => {
+      if (activePadPointers.has(event.pointerId)) return;
       event.preventDefault();
       try { button.setPointerCapture(event.pointerId); } catch { /* Pointer capture may be unavailable in older browsers. */ }
-      if (platformMode && key === 'ArrowUp') jumpPlatformer(); else pressed.add(key);
+      const jump = platformMode && key === 'ArrowUp';
+      activePadPointers.set(event.pointerId, { button, key, jump });
+      if (jump) jumpPlatformer(); else pressed.add(key);
       button.classList.add('held');
     };
-    const up = event => {
-      event.preventDefault(); pressed.delete(key); button.classList.remove('held');
-      try { if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId); } catch { /* The pointer may already have been released. */ }
+    const up = (event, releaseCapture = true) => {
+      const control = activePadPointers.get(event.pointerId);
+      if (!control) return;
+      if (event.cancelable) event.preventDefault();
+      activePadPointers.delete(event.pointerId);
+      if (!control.jump && !keyboardPressed.has(control.key)
+        && ![...activePadPointers.values()].some(active => !active.jump && active.key === control.key)) pressed.delete(control.key);
+      if (![...activePadPointers.values()].some(active => active.button === control.button)) control.button.classList.remove('held');
+      try {
+        if (releaseCapture && control.button.hasPointerCapture(event.pointerId)) control.button.releasePointerCapture(event.pointerId);
+      } catch { /* The pointer may already have been released. */ }
     };
     button.addEventListener('pointerdown', down);
     button.addEventListener('pointerup', up);
     button.addEventListener('pointercancel', up);
+    button.addEventListener('lostpointercapture', event => up(event, false));
     button.addEventListener('contextmenu', event => event.preventDefault());
   });
   function resetGame(message = 'Back in the sunny meadow.') {
@@ -2531,7 +2569,7 @@
     soccerBall.x = (soccerField.left + soccerField.right + 1) * world.size / 2; soccerBall.y = (soccerField.top + soccerField.bottom + 1) * world.size / 2;
     soccerBall.vx = 0; soccerBall.vy = 0; soccerBall.resetTimer = 0; soccerGoals = 0; soccerFieldWasActive = false;
     $('#soccerKickButton').hidden = true;
-    lastBiome = ''; updateBiome('meadow'); pressed.clear();
+    lastBiome = ''; updateBiome('meadow'); clearMovementInput();
     updatePlayerHealth(); updateIdolProgress(); updateBossHud(); updateEnemyCount(); updateDashButton(); updateDolphinHud();
     showToast(message);
   }

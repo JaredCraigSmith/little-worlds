@@ -115,3 +115,18 @@
 @media(orientation:landscape) and (any-pointer:coarse){.game-viewport{height:min(72vh,480px);min-height:280px}}
 .main-nav,.main-nav *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.nav-button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 @media(any-pointer:coarse){.game-viewport .touch-pad.platform-controls{left:max(14px,env(safe-area-inset-left));right:max(14px,env(safe-area-inset-right));grid-template-columns:64px minmax(0,1fr) 46px 46px;grid-template-rows:46px;pointer-events:none}.game-viewport .platform-controls .pad-key{pointer-events:auto}.game-viewport .platform-controls .pad-up{grid-column:1;grid-row:1}.game-viewport .platform-controls .pad-left{grid-column:3;grid-row:1}.game-viewport .platform-controls .pad-right{grid-column:4;grid-row:1}.game-viewport .platform-controls .pad-down{display:none}.game-viewport .dash-button{min-width:78px;min-height:46px;padding:0 14px;font-size:11px}}
+/* Keep touch controls responsive and free from native text selection/callouts. */
+.game-viewport .touch-pad,.game-viewport .touch-pad *, .game-viewport .combat-controls,.game-viewport .combat-controls *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.game-viewport .touch-pad,.game-viewport .pad-key,.game-viewport .dash-button{-webkit-tap-highlight-color:transparent;touch-action:none}
+@media(any-pointer:coarse){
+  .game-viewport .touch-pad{grid-template-columns:repeat(3,54px);grid-template-rows:repeat(2,54px);gap:7px}
+  .game-viewport .pad-key{min-width:54px;min-height:54px;font-size:23px}
+  .game-viewport .touch-pad.platform-controls{left:max(14px,env(safe-area-inset-left));right:max(14px,env(safe-area-inset-right));grid-template-columns:54px 54px minmax(0,1fr) 70px;grid-template-rows:54px;gap:7px;pointer-events:none}
+  .game-viewport .platform-controls .pad-key{pointer-events:auto}
+  .game-viewport .platform-controls .pad-left{grid-column:1;grid-row:1}
+  .game-viewport .platform-controls .pad-right{grid-column:2;grid-row:1}
+  .game-viewport .platform-controls .pad-up{grid-column:4;grid-row:1;min-width:68px;font-size:12px;font-weight:900}
+  .game-viewport .dash-button{min-width:88px;min-height:52px;padding:0 14px;font-size:12px}
+  .game-viewport .game-hint .hint-key,.game-viewport .game-hint .hint-copy,.game-viewport .game-hint .hint-divider{display:none}
+  .game-viewport .game-hint .hint-touch{display:block;font-size:10px}
+}
