@@ -804,7 +804,7 @@
     return n - Math.floor(n);
   }
   const world = { width: 112, height: 80, size: 32 };
-  const treehouse = { tx: 64, ty: 28, doorTx: 64, doorTy: 31 };
+  const treehouse = { tx: 18, ty: 31, doorTx: 18, doorTy: 34 };
   let treehouseEntryArmed = true;
   let platformMode = false;
   let platformer = { x: 48, y: 0, vx: 0, vy: 0, width: 24, height: 34, grounded: false, face: 1, cameraX: 0, collectedCoins: new Set() };
@@ -819,7 +819,7 @@
   };
   const danceParty = { left: 79, right: 83, top: 39, bottom: 42 };
   const partyColors = ['#f37ca2', '#ffd36a', '#76d8c5', '#9b8bf3', '#a6dc72'];
-  const soccerField = { left: 27, right: 35, top: 38, bottom: 42, goalHalf: 38 };
+  const soccerField = { left: 49, right: 57, top: 13, bottom: 17, goalHalf: 38 };
   const dolphin = { x: 110 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
   const dolphinRideDuration = 10;
   let dolphinRideArmed = true;
@@ -1108,7 +1108,7 @@
     }
     ctx.fillStyle = '#fff9e9'; ctx.fillRect(centerX - 66, top - 23, 132, 16);
     ctx.fillStyle = '#396349'; ctx.font = 'bold 8px "DM Sans",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('FOREST SOCCER · F TO KICK', centerX, top - 15);
+    ctx.fillText('MEADOW SOCCER · F TO KICK', centerX, top - 15);
     const light = .72 + (Math.sin(time * .004) + 1) * .12;
     ctx.globalAlpha = light; ctx.fillStyle = '#fff1a4';
     ctx.beginPath(); ctx.arc(centerX, centerY, 2, 0, Math.PI * 2); ctx.fill();
