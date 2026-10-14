@@ -28,6 +28,14 @@
 @media(max-width:1050px){.crop-tools{grid-template-columns:minmax(0,1fr) auto}.crop-tools .tolerance-control{grid-column:auto}.sprite-adjust-bar{grid-template-columns:1fr 1fr;gap:9px}.adjustment-title{grid-column:1}.recalculate-button{grid-column:2;grid-row:1;justify-self:end}.sprite-adjust-bar .tolerance-control{grid-column:auto}}
 .frame-edit-button,.frame-editor-done{width:100%;min-height:34px;margin-top:10px;border:1px solid #dce7da;border-radius:8px;background:#f4f8f1;color:#4f7959;font-size:10px;font-weight:800}
 .frame-edit-button:hover,.frame-editor-done:hover{background:#eaf3e7}
+
+/* Four dash poses extend the drawing sheet to a fourth row. */
+.paper-grid{grid-template-rows:repeat(4,1fr)}
+.dash-row-label{background:#fff9ed;color:#a27c32}
+.dash-mini-label{color:#b38b36}
+.crop-grid-guides{background-size:25% 100%,100% 25%}
+@media print{.print-grid{grid-template-rows:repeat(4,1.7in)}}
+@media(max-width:460px){.paper-preview{aspect-ratio:1.12}}
 #frameEditorCanvas{width:84%;height:84%;object-fit:contain;image-rendering:pixelated;touch-action:none;cursor:crosshair}
 .frame-editor-panel{margin-top:10px}
 .frame-editor-panel>p{color:#849187;font-size:9px;line-height:1.45;text-align:center}

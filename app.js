@@ -3,8 +3,16 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const STORAGE_KEY = 'littleworlds-save-v1';
   const DRAW_ROWS = ['up', 'right', 'down'];
-  const ARROWS = ['↑', '→', '↓', '←'];
-  const LABELS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
+  const SHEET_ROWS = [...DRAW_ROWS, 'dash'];
+  const ARROWS = ['↑', '→', '↓', '⚡', '←'];
+  const LABELS = ['UP', 'RIGHT', 'DOWN', 'DASH', 'LEFT'];
+  const FRAME_COLUMNS = 4;
+  const DASH_FRAME_OFFSET = 12;
+  const DASH_FRAME_COUNT = 4;
+  const SHEET_FRAME_COUNT = SHEET_ROWS.length * FRAME_COLUMNS;
+  const MIRRORED_FRAME_OFFSET = SHEET_FRAME_COUNT;
+  const TOTAL_SPRITE_FRAME_COUNT = MIRRORED_FRAME_OFFSET + FRAME_COLUMNS;
+  const DASH_DURATION = .2;
   const directions = { up: 0, right: 1, down: 2, left: 3 };
   const biomeData = {
     meadow: { title: 'Sunny Meadow', emoji: '🌿', message: 'A sunny meadow! You made it.' },
@@ -85,7 +93,7 @@
   let nearbyIdolId = '';
   let spriteFrames = null;
   let baseFrames = null;
-  let manualEraseMasks = Array.from({ length: 12 }, () => new Set());
+  let manualEraseMasks = Array.from({ length: 16 }, () => new Set());
   let photoImage = null;
   let crop = null;
   let cropDrag = null;
@@ -133,14 +141,16 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); }
     catch { /* A large camera image may exceed storage; the current session still works. */ }
   }
-  function emptyEraseMasks() { return Array.from({ length: 12 }, () => new Set()); }
+  function emptyEraseMasks() { return Array.from({ length: 16 }, () => new Set()); }
   function restoreEraseMasks(saved) {
-    return Array.from({ length: 12 }, (_, frame) => new Set(
+    return Array.from({ length: 16 }, (_, frame) => new Set(
       Array.isArray(saved?.[frame]) ? saved[frame].filter(pixel => Number.isInteger(pixel) && pixel >= 0 && pixel < 4096) : []
     ));
   }
   function eraseSourceForFrame(frame) {
-    return frame >= 12 ? { frame: 4 + frame - 12, flipped: true } : { frame, flipped: false };
+    return frame >= MIRRORED_FRAME_OFFSET
+      ? { frame: FRAME_COLUMNS + frame - MIRRORED_FRAME_OFFSET, flipped: true }
+      : { frame, flipped: false };
   }
   function saveSettings() {
     const existing = safeLoad();
@@ -191,13 +201,14 @@
     manualEraseMasks = emptyEraseMasks();
     baseFrames = [];
     for (const dir of DRAW_ROWS) for (let pose = 0; pose < 4; pose++) baseFrames.push(makeDefaultSprite(dir, pose).toDataURL());
+    for (let pose = 0; pose < DASH_FRAME_COUNT; pose++) baseFrames.push(makeDefaultSprite('right', pose).toDataURL());
     buildProcessedFrames();
   }
 
   function saveSprite() {
     if (!baseFrames?.length) return;
     const existing = safeLoad();
-    safeSave({ ...existing, name: $('#heroName').value.trim().slice(0, 18) || 'Pip', baseFrames, manualEraseMasks: manualEraseMasks.map(mask => [...mask]), paperRemoval: $('#paperRemoval').checked, backgroundColor: sampledBackground, backgroundTolerance, edgeBuffer });
+    safeSave({ ...existing, name: $('#heroName').value.trim().slice(0, 18) || 'Pip', baseFrames, dashFrameCount: DASH_FRAME_COUNT, manualEraseMasks: manualEraseMasks.map(mask => [...mask]), paperRemoval: $('#paperRemoval').checked, backgroundColor: sampledBackground, backgroundTolerance, edgeBuffer });
   }
 
   function restoreSprite() {
@@ -206,9 +217,12 @@
     if (Array.isArray(data.defeatedBosses)) data.defeatedBosses.filter(id => idolData.some(idol => idol.biome === id)).forEach(id => defeatedBosses.add(id));
     finalBossDefeated = data.finalBossDefeated === true;
     if (data.name) $('#heroName').value = data.name;
-    if (Array.isArray(data.baseFrames) && [12, 16].includes(data.baseFrames.length)) {
-      // Older saves include a hand-drawn left row; the right row now supplies it by mirroring.
-      baseFrames = data.baseFrames.slice(0, 12);
+    if (Array.isArray(data.baseFrames) && [DASH_FRAME_OFFSET, SHEET_FRAME_COUNT].includes(data.baseFrames.length)) {
+      // Older saves may have a hand-drawn left row; left is still supplied by mirroring.
+      const hasDashFrames = data.baseFrames.length === SHEET_FRAME_COUNT && data.dashFrameCount === DASH_FRAME_COUNT;
+      baseFrames = hasDashFrames
+        ? data.baseFrames.slice(0, SHEET_FRAME_COUNT)
+        : [...data.baseFrames.slice(0, DASH_FRAME_OFFSET), ...Array.from({ length: DASH_FRAME_COUNT }, (_, pose) => makeDefaultSprite('right', pose).toDataURL())];
       manualEraseMasks = restoreEraseMasks(data.manualEraseMasks);
       $('#paperRemoval').checked = data.paperRemoval !== false;
       sampledBackground = data.backgroundColor && ['r', 'g', 'b'].every(key => Number.isFinite(data.backgroundColor[key])) ? data.backgroundColor : null;
@@ -235,12 +249,13 @@
   function createGrid() {
     const build = (root, printable) => {
       root.replaceChildren();
-      DRAW_ROWS.forEach((dir, row) => {
+      SHEET_ROWS.forEach((dir, row) => {
         const label = document.createElement('div');
         label.className = printable ? 'print-row-label' : 'paper-row-label';
+        if (dir === 'dash') label.classList.add('dash-row-label');
         label.innerHTML = `${ARROWS[row]} <small>${LABELS[row]}</small>`;
         root.append(label);
-        for (let col = 0; col < 4; col++) {
+        for (let col = 0; col < FRAME_COLUMNS; col++) {
           const cell = document.createElement('div');
           cell.className = printable ? 'print-cell' : 'paper-cell';
           root.append(cell);
@@ -353,10 +368,11 @@
 
   function initCrop() {
     const w = photoImage.naturalWidth, h = photoImage.naturalHeight;
-    // Four columns and three rows make a 4:3 grid. Start with a centered crop
-    // that fits the photo, leaving room for page edges and camera tilt.
-    const width = Math.min(w * .95, h * (4 / 3) * .95);
-    const height = width * (3 / 4);
+    // Four columns and four rows of slightly landscape boxes make a 1.18:1 grid.
+    // Start with a centered crop that fits the photo, leaving room for page edges and camera tilt.
+    const gridAspect = 1.18;
+    const width = Math.min(w * .95, h * gridAspect * .95);
+    const height = width / gridAspect;
     crop = { x: (w - width) / 2, y: (h - height) / 2, w: width, h: height };
   }
   $('#resetCropButton').addEventListener('click', () => { if (photoImage) { initCrop(); positionCropOverlay(); } });
@@ -504,10 +520,10 @@
 
   $('#useSheetButton').addEventListener('click', () => {
     if (!photoImage || !crop) return;
-    const cellW = crop.w / 4, cellH = crop.h / DRAW_ROWS.length;
+    const cellW = crop.w / FRAME_COLUMNS, cellH = crop.h / SHEET_ROWS.length;
     baseFrames = [];
     manualEraseMasks = emptyEraseMasks();
-    for (let row = 0; row < DRAW_ROWS.length; row++) for (let col = 0; col < 4; col++) {
+    for (let row = 0; row < SHEET_ROWS.length; row++) for (let col = 0; col < FRAME_COLUMNS; col++) {
       const frame = document.createElement('canvas');
       frame.width = frame.height = 64;
       const fctx = frame.getContext('2d', { willReadFrequently: true });
@@ -515,11 +531,11 @@
       fctx.drawImage(photoImage, crop.x + col * cellW, crop.y + row * cellH, cellW, cellH, 0, 0, 64, 64);
       baseFrames.push(frame.toDataURL('image/png'));
     }
-    $('#previewStatus').textContent = 'Building 12 drawn frames and mirroring left…';
+    $('#previewStatus').textContent = 'Building 16 drawn frames and mirroring left…';
     $('#recalculatePreviewButton').disabled = true;
     buildProcessedFrames();
     $('#scanWorkspace').hidden = true; $('#importedWorkspace').hidden = false;
-    $('#workspaceTitle').textContent = 'Your hero, in 16 little moments'; $('#workspaceSubtitle').textContent = 'Left-facing poses are mirrored from the right';
+    $('#workspaceTitle').textContent = 'Your hero, in 20 little moments'; $('#workspaceSubtitle').textContent = 'Four dash poses animate during your attack';
     $('#workspaceNote').innerHTML = '<span>✦</span> Your drawing is saved on this device. Head back to the island and start exploring!';
   });
 
@@ -533,7 +549,7 @@
   function recalculatePreview() {
     window.clearTimeout(recalculateTimer);
     if (!baseFrames?.length) return;
-    $('#previewStatus').textContent = 'Recalculating 12 drawings and mirrored poses…';
+    $('#previewStatus').textContent = 'Recalculating 16 drawings and mirrored poses…';
     $('#recalculatePreviewButton').disabled = true;
     buildProcessedFrames();
   }
@@ -544,7 +560,7 @@
     const paperSample = sampledBackground;
     const tolerance = backgroundTolerance;
     const insetRatio = edgeBuffer / 100;
-    const nextFrames = new Array(12);
+    const nextFrames = new Array(SHEET_FRAME_COUNT);
     let pending = baseFrames.length;
     const finish = frames => {
       if (version !== processingVersion) return;
@@ -562,9 +578,9 @@
       pending--;
       if (pending) return;
       // Keep four poses per direction at runtime, deriving left from right.
-      const mirrored = new Array(4);
-      let mirrorsPending = 4;
-      for (let pose = 0; pose < 4; pose++) {
+      const mirrored = new Array(FRAME_COLUMNS);
+      let mirrorsPending = FRAME_COLUMNS;
+      for (let pose = 0; pose < FRAME_COLUMNS; pose++) {
         const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
         const ctx = canvas.getContext('2d');
         ctx.translate(64, 0); ctx.scale(-1, 1); ctx.drawImage(nextFrames[4 + pose], 0, 0, 64, 64);
@@ -652,9 +668,10 @@
   function renderSpritePreview() {
     const grid = $('#spriteResultGrid'); grid.replaceChildren();
     spriteFrames?.forEach((frame, index) => {
-      const row = Math.floor(index / 4), pose = index % 4 + 1;
+      const row = Math.floor(index / FRAME_COLUMNS), pose = index % FRAME_COLUMNS + 1;
       const cell = document.createElement('button'); cell.type = 'button'; cell.className = 'sprite-frame';
-      cell.setAttribute('aria-label', `Zoom in on ${LABELS[row].toLowerCase()} pose ${pose}`);
+      const frameName = row === 3 ? `dash frame ${pose}` : `${LABELS[row].toLowerCase()} pose ${pose}`;
+      cell.setAttribute('aria-label', `Zoom in on ${frameName}`);
       const img = document.createElement('img'); img.alt = ''; img.src = frame.src;
       const label = document.createElement('span'); label.className = 'frame-label'; label.textContent = `${ARROWS[row]} ${LABELS[row]} · ${pose}`;
       cell.append(img, label); cell.addEventListener('click', () => showFrameDetails(index)); grid.append(cell);
@@ -664,15 +681,17 @@
     if (!spriteFrames?.[index]) return;
     if (currentDetailFrame !== index) eraseHistory = [];
     currentDetailFrame = index;
-    const frame = spriteFrames[index], row = Math.floor(index / 4), pose = index % 4 + 1;
+    const frame = spriteFrames[index], row = Math.floor(index / FRAME_COLUMNS), pose = index % FRAME_COLUMNS + 1;
     $('#frameDetailImage').src = frame.src;
-    $('#frameDialogTitle').textContent = `${ARROWS[row]} ${LABELS[row][0]}${LABELS[row].slice(1).toLowerCase()} · pose ${pose} of 4`;
+    $('#frameDialogTitle').textContent = row === 3
+      ? `⚡ Dash attack · frame ${pose} of 4`
+      : `${ARROWS[row]} ${LABELS[row][0]}${LABELS[row].slice(1).toLowerCase()} · pose ${pose} of 4`;
     $('#frameDetailImage').hidden = frameEditorOpen;
     $('#frameEditorCanvas').hidden = !frameEditorOpen;
     $('#frameEditorPanel').hidden = !frameEditorOpen;
     $('#editFrameButton').hidden = frameEditorOpen;
     $('.frame-detail-caption span').textContent = frameEditorOpen
-      ? (row === 1 || row === 3 ? 'Edits are mirrored between right and left' : 'Erase background around this pose')
+      ? (row === 1 || row === SHEET_ROWS.length ? 'Edits are mirrored between right and left' : 'Erase background around this pose')
       : 'Sprite frame';
     drawFrameEditor(frame);
     updateUndoButton();
@@ -753,14 +772,15 @@
   });
   $('#closeFrameDialog').addEventListener('click', () => $('#frameDialog').close());
   $('#frameDialog').addEventListener('close', () => { frameEditorOpen = false; erasePointerDown = false; eraseStroke = []; eraseHistory = []; });
-  $('#previousFrame').addEventListener('click', () => showFrameDetails((currentDetailFrame + 15) % 16));
-  $('#nextFrame').addEventListener('click', () => showFrameDetails((currentDetailFrame + 1) % 16));
+  $('#previousFrame').addEventListener('click', () => showFrameDetails((currentDetailFrame + TOTAL_SPRITE_FRAME_COUNT - 1) % TOTAL_SPRITE_FRAME_COUNT));
+  $('#nextFrame').addEventListener('click', () => showFrameDetails((currentDetailFrame + 1) % TOTAL_SPRITE_FRAME_COUNT));
   $('#frameDialog').addEventListener('click', event => { if (event.target === $('#frameDialog')) $('#frameDialog').close(); });
   $('#sampleButton').addEventListener('click', () => {
     sampledBackground = null;
     manualEraseMasks = emptyEraseMasks();
     baseFrames = [];
     for (const dir of DRAW_ROWS) for (let pose = 0; pose < 4; pose++) baseFrames.push(makeDefaultSprite(dir, pose).toDataURL());
+    for (let pose = 0; pose < DASH_FRAME_COUNT; pose++) baseFrames.push(makeDefaultSprite('right', pose).toDataURL());
     $('#paperRemoval').checked = true;
     $('#paperPreview').hidden = true; $('#scanWorkspace').hidden = true; $('#importedWorkspace').hidden = false;
     $('#clearPhotoButton').hidden = false; $('#clearPhotoButton').textContent = 'Start over'; $('#paperBadge').innerHTML = '<i></i> YOUR HERO';
@@ -1330,29 +1350,42 @@
         }
       }
     }
+    const dashing = player.dashTimer > 0;
     const pose = dancing ? 1 + Math.floor(time / 130) % 3 : player.moving ? 1 + Math.floor(frameTime / 130) % 3 : 0;
     const danceDirection = ['down', 'left', 'up', 'right'][Math.floor(time / 360) % 4];
     const row = directions[dancing ? danceDirection : player.face] ?? 2;
-    const frame = spriteFrames?.[row * 4 + pose];
+    const dashPose = Math.min(DASH_FRAME_COUNT - 1, Math.floor((DASH_DURATION - player.dashTimer) / (DASH_DURATION / DASH_FRAME_COUNT)));
+    const frame = dashing
+      ? spriteFrames?.[DASH_FRAME_OFFSET + dashPose]
+      : spriteFrames?.[(row === directions.left ? MIRRORED_FRAME_OFFSET : row * FRAME_COLUMNS) + pose];
     ctx.imageSmoothingEnabled = false;
-    if (player.dashTimer > 0) {
+    if (dashing) {
       ctx.fillStyle = 'rgba(255,239,171,.48)';
       ctx.beginPath(); ctx.ellipse(sx - player.dashDX * 19, sy - player.dashDY * 19 + 5, 17, 8, 0, 0, Math.PI * 2); ctx.fill();
     }
     if (frame?.complete && frame.naturalWidth) {
       const floatY = player.inWater ? 3 : 0;
       const drawX = Math.round(sx - 18), drawY = Math.round(sy - 23 + bob + floatY);
+      const drawHeroFrame = () => {
+        if (dashing) {
+          ctx.save();
+          ctx.translate(sx, drawY + 19);
+          ctx.rotate(Math.atan2(player.dashDY, player.dashDX));
+          ctx.drawImage(frame, -18, -19, 36, 38);
+          ctx.restore();
+        } else ctx.drawImage(frame, drawX, drawY, 36, 38);
+      };
       if (player.inWater) {
         ctx.save();
         ctx.beginPath(); ctx.rect(drawX, drawY, 36, 19); ctx.clip();
-        ctx.drawImage(frame, drawX, drawY, 36, 38);
+        drawHeroFrame();
         ctx.restore();
         ctx.strokeStyle = 'rgba(229,249,230,.88)'; ctx.lineWidth = 1.3;
         ctx.beginPath(); ctx.moveTo(drawX + 2, drawY + 19);
         ctx.quadraticCurveTo(drawX + 10, drawY + 16, drawX + 18, drawY + 19);
         ctx.quadraticCurveTo(drawX + 27, drawY + 22, drawX + 34, drawY + 18);
         ctx.stroke();
-      } else ctx.drawImage(frame, drawX, drawY, 36, 38);
+      } else drawHeroFrame();
     } else {
       ctx.fillStyle = '#71976b'; ctx.fillRect(sx - 9, sy - 13, 18, 22);
     }
@@ -2140,7 +2173,7 @@
     }
     const length = Math.hypot(dx, dy) || 1;
     player.dashDX = dx / length; player.dashDY = dy / length;
-    player.dashTimer = .2; player.dashCooldown = .72;
+    player.dashTimer = DASH_DURATION; player.dashCooldown = .72;
     player.dashHitBoss = false;
     $('#gameHint').classList.add('gone');
     updateDashButton();

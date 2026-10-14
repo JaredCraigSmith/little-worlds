@@ -199,15 +199,16 @@
               <div class="step-content" id="drawStep">
                 <div class="step-eyebrow">FIRST, MAKE SOME ART</div>
                 <h2>Give your hero<br>a few little poses.</h2>
-                <p>Draw up, right, and down. The left-facing poses are made by flipping the right-facing ones.</p>
+                <p>Draw up, right, and down, then add four dash poses. Left-facing poses are flipped from the right.</p>
                 <div class="mini-sheet" aria-hidden="true">
                   <div class="mini-row-label">↑</div><i></i><i></i><i></i><i></i>
                   <div class="mini-row-label">→</div><i></i><i></i><i></i><i></i>
                   <div class="mini-row-label">↓</div><i></i><i></i><i></i><i></i>
+                  <div class="mini-row-label dash-mini-label">⚡</div><i></i><i></i><i></i><i></i>
                 </div>
-                <div class="direction-key"><span><b>↑</b> Up</span><span><b>→</b> Right</span><span><b>↓</b> Down</span></div>
+                <div class="direction-key"><span><b>↑</b> Up</span><span><b>→</b> Right</span><span><b>↓</b> Down</span><span><b>⚡</b> Dash</span></div>
                 <button class="primary-button full-button" id="studioPrintButton" type="button"><span>▤</span> Print my drawing grid <span class="button-end">↗</span></button>
-                <div class="tiny-tip"><span>✦</span> Keep the whole character inside each box.</div>
+                <div class="tiny-tip"><span>✦</span> Draw the dash poses lunging right; they animate toward your dash.</div>
               </div>
               <div class="step-content bring-step" id="bringStep" hidden>
                 <div class="step-eyebrow">THEN, BRING IT TO LIFE</div>
@@ -233,13 +234,13 @@
             <div class="workspace-body" id="workspaceBody">
               <div class="paper-preview" id="paperPreview">
                 <div class="paper-top"><div class="paper-brand"><span class="brand-mark mini-mark"><i></i><i></i><i></i><i></i></span> little<span>worlds</span></div><div class="paper-title">MY LITTLE HERO <span>✦</span></div><div class="paper-name-line">Name <i></i></div></div>
-                <div class="paper-instruction">Draw the same character in a new pose in every box.</div>
+                <div class="paper-instruction">Draw up, right, and down. In DASH, draw four right-facing lunges.</div>
                 <div class="paper-grid" id="paperGrid"></div>
                 <div class="paper-footer"><span><b>↑ → ↓</b> Left is flipped from right for you.</span><span>Color is welcome! <i>☺</i></span></div>
                 <div class="paper-url">LITTLE WORLDS · A TINY PLACE TO PLAY</div>
               </div>
               <div class="scan-workspace" id="scanWorkspace" hidden>
-                <div class="crop-stage" id="cropStage"><canvas id="cropCanvas" aria-label="Photo crop preview"></canvas><div class="crop-overlay" id="cropOverlay"><div class="crop-grid-guides"></div><span class="crop-corner tl"></span><span class="crop-corner tr"></span><span class="crop-corner bl"></span><span class="crop-corner br"></span><span class="crop-label">LINE UP THE 4 × 3 BOXES</span></div></div>
+                <div class="crop-stage" id="cropStage"><canvas id="cropCanvas" aria-label="Photo crop preview"></canvas><div class="crop-overlay" id="cropOverlay"><div class="crop-grid-guides"></div><span class="crop-corner tl"></span><span class="crop-corner tr"></span><span class="crop-corner bl"></span><span class="crop-corner br"></span><span class="crop-label">LINE UP THE 4 × 4 BOXES</span></div></div>
                 <div class="crop-tools">
                   <div class="paper-pick-copy"><strong>Paper color <span class="paper-swatch" id="paperSwatch"></span></strong><small id="paperColorStatus" aria-live="polite">Automatic · we’ll read each box edge</small></div>
                   <button class="sample-color-button" id="pickBackgroundButton" type="button">◎ <span>Pick background</span></button>
@@ -287,11 +288,11 @@
 
   <section id="printSheet" aria-label="Printable character drawing grid">
     <div class="print-head"><div class="print-logo"><span class="brand-mark"><i></i><i></i><i></i><i></i></span> little<span>worlds</span></div><div class="print-title"><h1>MY LITTLE HERO</h1><span>✦</span></div><div class="print-name">Name <i></i></div></div>
-    <p class="print-instructions">Draw up, right, and down. Little changes between boxes make your hero move; left is flipped from right!</p>
+    <p class="print-instructions">Draw up, right, and down. In DASH, draw four right-facing lunges; they animate during attacks and turn toward your movement.</p>
     <div class="print-grid" id="printGrid"></div>
-    <div class="print-bottom"><span><b>↑ Up</b> &nbsp; <b>→ Right</b> &nbsp; <b>↓ Down</b></span><span>Left-facing poses are mirrored automatically.</span></div>
+    <div class="print-bottom"><span><b>↑ Up</b> &nbsp; <b>→ Right</b> &nbsp; <b>↓ Down</b> &nbsp; <b>⚡ Dash</b></span><span>Left-facing poses are mirrored automatically.</span></div>
     <div class="print-footer">A TINY PLACE TO PLAY <span>littleworlds ✦</span></div>
   </section>
-  <script src="app.js?v=c1bcfad"></script>
+  <script src="app.js?v=dash-frames"></script>
 </body>
 </html>
