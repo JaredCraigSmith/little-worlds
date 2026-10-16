@@ -848,8 +848,13 @@
   const dolphin = { x: 110 * world.size + world.size / 2, y: 40 * world.size + world.size / 2 };
   const dolphinRideDuration = 10;
   let dolphinRideArmed = true;
-  const shark = { x: world.size * .875, y: 40 * world.size + world.size / 2, homeX: world.size * .875, homeY: 40 * world.size + world.size / 2, chasing: false };
-  const sharkFearRadius = 180;
+  const sharkPatrol = { minX: 4.5 * world.size, maxX: 11.25 * world.size, y: 40 * world.size + world.size / 2 };
+  const shark = {
+    x: (sharkPatrol.minX + sharkPatrol.maxX) / 2, y: sharkPatrol.y,
+    homeX: (sharkPatrol.minX + sharkPatrol.maxX) / 2, homeY: sharkPatrol.y,
+    direction: 1, facing: 1, chasing: false, chaseTimer: 0
+  };
+  const sharkFearRadius = 195;
   const soccerBall = {
     x: (soccerField.left + soccerField.right + 1) * world.size / 2,
     y: (soccerField.top + soccerField.bottom + 1) * world.size / 2,
@@ -895,7 +900,8 @@
     showToast(`You recovered a heart. ${player.health} of ${maxPlayerHealth} hearts.`);
   }
   function biomeAt(tx, ty) {
-    const dx = (tx - 56) / 51, dy = (ty - 40) / 35;
+    const westOceanRadius = tx < 56 ? 43 : 51;
+    const dx = (tx - 56) / westOceanRadius, dy = (ty - 40) / 35;
     const edge = Math.sqrt(dx * dx + dy * dy);
     if (edge > 1.035) return 'water';
     const lake = Math.pow((tx - 50) / 8.5, 2) + Math.pow((ty - 45) / 5.8, 2) < 1;
@@ -935,7 +941,9 @@
   function drawGround(ctx, tx, ty, sx, sy, time) {
     const type = biomeAt(tx, ty), h = hash(tx, ty, 0);
     const size = world.size;
-    ctx.fillStyle = ground[type][Math.floor(h * ground[type].length)];
+    const deepWestWater = type === 'water' && tx < 12 && Math.abs(ty - 40) < 9;
+    const colors = deepWestWater ? ['#5ca7b5', '#579ead', '#60adba', '#559aa9'] : ground[type];
+    ctx.fillStyle = colors[Math.floor(h * colors.length)];
     ctx.fillRect(sx, sy, size + 1, size + 1);
     if (type === 'water') {
       const phase = (time * .00012 + h * 4) % 1;
@@ -1189,16 +1197,29 @@
   }
 
   function sharkPosition(time) {
-    return { x: shark.x, y: shark.y + Math.sin(time * .0022) * 13 };
+    return { x: shark.x, y: shark.y + Math.sin(time * .0022) * (shark.chasing ? 5 : 3) };
   }
 
   function drawShark(ctx, time) {
     const position = sharkPosition(time);
     const sx = position.x - cameraX, sy = position.y - cameraY;
     if (sx < -60 || sy < -60 || sx > gameWidth + 60 || sy > gameHeight + 60) return;
+    if (!shark.chasing) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(230,249,239,.72)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(sx, sy + 4, 17, 4, 0, .08, Math.PI - .08); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(sx, sy + 4, 11, 3, Math.PI, .1, Math.PI - .1); ctx.stroke();
+      ctx.fillStyle = '#466e7c'; ctx.beginPath();
+      ctx.moveTo(sx - 7, sy + 5); ctx.lineTo(sx - 2, sy - 13); ctx.lineTo(sx + 2, sy - 16);
+      ctx.lineTo(sx + 5, sy + 5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#6f9aaa'; ctx.beginPath();
+      ctx.moveTo(sx - 1, sy + 3); ctx.lineTo(sx + 2, sy - 11); ctx.lineTo(sx + 4, sy + 3); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.fillStyle = 'rgba(37,72,83,.2)'; ctx.beginPath(); ctx.ellipse(sx, sy + 12, 23, 6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.translate(sx, sy);
+    ctx.translate(sx, sy); ctx.scale(shark.facing, 1);
     ctx.fillStyle = '#466e7c'; ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(-34, -11); ctx.lineTo(-29, 0); ctx.lineTo(-34, 11); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#6f9aaa'; ctx.beginPath(); ctx.moveTo(-24, 0); ctx.quadraticCurveTo(-14, -12, 5, -10); ctx.quadraticCurveTo(19, -8, 28, 0); ctx.quadraticCurveTo(18, 8, 4, 10); ctx.quadraticCurveTo(-15, 9, -24, 0); ctx.fill();
     ctx.fillStyle = '#d9e9e5'; ctx.beginPath(); ctx.moveTo(-13, 4); ctx.quadraticCurveTo(2, 12, 20, 3); ctx.quadraticCurveTo(8, 8, -13, 4); ctx.fill();
@@ -1207,33 +1228,44 @@
     ctx.fillStyle = '#fff9e8'; ctx.beginPath(); ctx.arc(18, -3, 2, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#263a41'; ctx.beginPath(); ctx.arc(18.5, -3, 1, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    ctx.fillStyle = 'rgba(255,254,246,.92)'; ctx.fillRect(sx - 51, sy - 34, 102, 15);
+    ctx.fillStyle = 'rgba(255,254,246,.92)'; ctx.fillRect(sx - 48, sy - 34, 96, 15);
     ctx.fillStyle = '#456f76'; ctx.font = 'bold 8px "DM Sans",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('SHARK · KEEP BACK', sx, sy - 26);
+    ctx.fillText('SHARK · CHASING!', sx, sy - 26);
   }
 
   function updateShark(dt, time) {
     player.sharkScareCooldown = Math.max(0, player.sharkScareCooldown - dt);
+    if (shark.chasing) shark.chaseTimer = Math.max(0, shark.chaseTimer - dt);
     const position = sharkPosition(time);
     const playerX = player.x + world.size / 2, playerY = player.y + world.size / 2;
     const playerInWater = biomeAt(Math.floor(player.x / world.size), Math.floor(player.y / world.size)) === 'water';
-    if (shark.chasing && !playerInWater && player.panicTimer <= 0) shark.chasing = false;
-    if (!shark.chasing && playerInWater && player.sharkScareCooldown <= 0 && Math.hypot(playerX - position.x, playerY - position.y) < sharkFearRadius) {
+    if (shark.chasing && !playerInWater && player.panicTimer <= 0 && shark.chaseTimer <= 0) shark.chasing = false;
+    if (!shark.chasing && player.sharkScareCooldown <= 0 && Math.hypot(playerX - position.x, playerY - position.y) < sharkFearRadius) {
       shark.chasing = true;
+      shark.chaseTimer = 1.35;
+      shark.facing = Math.sign(playerX - shark.x) || shark.facing;
       player.panicTimer = 4;
       player.panicDX = 1; player.panicDY = 0; player.face = 'right';
       player.dashTimer = 0; player.dashCooldown = 0; player.dolphinRideTimer = 0; player.sharkScareCooldown = 2;
       clearMovementInput();
       updateDashButton(); updateDolphinHud();
-      showToast('A shark is chasing you! Run to the west shore!');
+      showToast('A shark bursts from the water! Run to the west shore!');
     }
 
-    const targetX = shark.chasing ? playerX : shark.homeX;
-    const targetY = shark.chasing ? playerY : shark.homeY;
-    const dx = targetX - shark.x, dy = targetY - shark.y;
+    if (!shark.chasing) {
+      shark.x += shark.direction * 58 * dt;
+      if (shark.x >= sharkPatrol.maxX) { shark.x = sharkPatrol.maxX; shark.direction = -1; }
+      else if (shark.x <= sharkPatrol.minX) { shark.x = sharkPatrol.minX; shark.direction = 1; }
+      shark.facing = shark.direction;
+      const dyHome = shark.homeY - shark.y;
+      shark.y += clamp(dyHome, -28 * dt, 28 * dt);
+      return;
+    }
+
+    const dx = playerX - shark.x, dy = playerY - shark.y;
     const distance = Math.hypot(dx, dy);
     if (distance < 1) return;
-    const step = Math.min((shark.chasing ? 145 : 70) * dt, distance);
+    const step = Math.min(145 * dt, distance);
     const candidates = [
       { x: shark.x + dx / distance * step, y: shark.y + dy / distance * step },
       { x: shark.x + Math.sign(dx) * Math.min(step, Math.abs(dx)), y: shark.y },
@@ -1241,6 +1273,7 @@
     ];
     const waterPosition = candidates.find(point => biomeAt(Math.floor(point.x / world.size), Math.floor(point.y / world.size)) === 'water');
     if (waterPosition) { shark.x = waterPosition.x; shark.y = waterPosition.y; }
+    if (Math.abs(dx) > 1) shark.facing = Math.sign(dx);
   }
 
   function updateSoccerBall(dt) {
@@ -2419,7 +2452,8 @@
     if (!played) {
       played = true; $('#gameHint').classList.add('gone');
     }
-    const nextWater = biomeAt(Math.floor(player.x / 32), Math.floor(player.y / 32)) === 'water';
+    const nextBiome = biomeAt(Math.floor(player.x / 32), Math.floor(player.y / 32));
+    const nextWater = nextBiome === 'water';
     let enteredWater = false;
     if (nextWater !== player.inWater) {
       player.inWater = nextWater;
@@ -2430,7 +2464,7 @@
     const biome = biomeAt(Math.floor(player.x / 32), Math.floor(player.y / 32));
     updateBiome(biome);
     if (enteredWater) showToast('You slide into the water! Splash!');
-    if (panicking && !nextWater) {
+    if (panicking && nextBiome !== 'water' && nextBiome !== 'beach') {
       player.panicTimer = 0; player.sharkScareCooldown = 1.5; clearMovementInput();
       showToast('You made it safely to shore!');
     }
@@ -2565,7 +2599,7 @@
     player.health = maxPlayerHealth; player.damageCooldown = 0; player.healthRegenTimer = 0;
     player.slideTimer = 0; player.ridingSlide = false; player.slideProgress = 0; player.dolphinRideTimer = 0; player.sharkScareCooldown = 0; player.panicTimer = 0; player.partyDancing = false; player.dashTimer = 0; player.dashCooldown = 0; player.dashHitBoss = false; enemies.length = 0;
     resetChickens();
-    shark.chasing = false; shark.x = shark.homeX; shark.y = shark.homeY;
+    shark.chasing = false; shark.chaseTimer = 0; shark.x = shark.homeX; shark.y = shark.homeY; shark.direction = 1; shark.facing = 1;
     soccerBall.x = (soccerField.left + soccerField.right + 1) * world.size / 2; soccerBall.y = (soccerField.top + soccerField.bottom + 1) * world.size / 2;
     soccerBall.vx = 0; soccerBall.vy = 0; soccerBall.resetTimer = 0; soccerGoals = 0; soccerFieldWasActive = false;
     $('#soccerKickButton').hidden = true;
