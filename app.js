@@ -1930,15 +1930,16 @@
     }
     return false;
   }
-  function obstacleCollisionNormalsAt(x, y, moveX, moveY) {
+  function obstacleCollisionNormalsAt(x, y, moveX, moveY, fromX = x, fromY = y) {
     const tx = Math.floor(x / world.size), ty = Math.floor(y / world.size), normals = [];
     for (let yy = ty - 1; yy <= ty + 1; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) {
       const obstacle = obstacleAt(xx, yy); if (!obstacle) continue;
       const shape = obstacleCollisionShapes[obstacle.type];
-      const dx = x - (xx * world.size + shape.x), dy = y - (yy * world.size + shape.y);
+      const cx = xx * world.size + shape.x, cy = yy * world.size + shape.y;
+      const dx = x - cx, dy = y - cy;
       const ellipseDistance = (dx * dx) / (shape.radiusX * shape.radiusX) + (dy * dy) / (shape.radiusY * shape.radiusY);
       if (ellipseDistance >= 1) continue;
-      let nx = dx / (shape.radiusX * shape.radiusX), ny = dy / (shape.radiusY * shape.radiusY);
+      let nx = (fromX - cx) / (shape.radiusX * shape.radiusX), ny = (fromY - cy) / (shape.radiusY * shape.radiusY);
       const length = Math.hypot(nx, ny);
       if (length < .0001) {
         const moveLength = Math.hypot(moveX, moveY) || 1;
@@ -1965,12 +1966,19 @@
       };
       considerMove(stepX, 0);
       considerMove(0, stepY);
-      const normals = obstacleCollisionNormalsAt(nextX + world.size / 2, nextY + 27, stepX, stepY);
+      const normals = obstacleCollisionNormalsAt(
+        nextX + world.size / 2, nextY + 27, stepX, stepY,
+        x + world.size / 2, y + 27
+      );
       for (const normal of normals) {
         const intoObstacle = stepX * normal.x + stepY * normal.y;
-        if (intoObstacle >= 0) continue;
+        if (intoObstacle > .0001) continue;
         const slideX = stepX - intoObstacle * normal.x, slideY = stepY - intoObstacle * normal.y;
-        for (const scale of [1, .75, .5, .25]) considerMove(slideX * scale, slideY * scale);
+        for (const scale of [1, .75, .5, .25, .125, .0625]) {
+          for (const clearance of [0, .35, .7]) {
+            considerMove(slideX * scale + normal.x * clearance, slideY * scale + normal.y * clearance);
+          }
+        }
       }
       if (bestMove) { x += bestMove.x; y += bestMove.y; }
     }
