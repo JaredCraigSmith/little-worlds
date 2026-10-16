@@ -1930,6 +1930,52 @@
     }
     return false;
   }
+  function obstacleCollisionNormalsAt(x, y, moveX, moveY) {
+    const tx = Math.floor(x / world.size), ty = Math.floor(y / world.size), normals = [];
+    for (let yy = ty - 1; yy <= ty + 1; yy++) for (let xx = tx - 1; xx <= tx + 1; xx++) {
+      const obstacle = obstacleAt(xx, yy); if (!obstacle) continue;
+      const shape = obstacleCollisionShapes[obstacle.type];
+      const dx = x - (xx * world.size + shape.x), dy = y - (yy * world.size + shape.y);
+      const ellipseDistance = (dx * dx) / (shape.radiusX * shape.radiusX) + (dy * dy) / (shape.radiusY * shape.radiusY);
+      if (ellipseDistance >= 1) continue;
+      let nx = dx / (shape.radiusX * shape.radiusX), ny = dy / (shape.radiusY * shape.radiusY);
+      const length = Math.hypot(nx, ny);
+      if (length < .0001) {
+        const moveLength = Math.hypot(moveX, moveY) || 1;
+        nx = -moveX / moveLength; ny = -moveY / moveLength;
+      }
+      else { nx /= length; ny /= length; }
+      normals.push({ x: nx, y: ny });
+    }
+    return normals;
+  }
+  function moveWithObstacleSliding(x, y, moveX, moveY) {
+    const steps = Math.max(1, Math.ceil(Math.hypot(moveX, moveY) / 4));
+    const stepX = moveX / steps, stepY = moveY / steps;
+    for (let step = 0; step < steps; step++) {
+      const nextX = x + stepX, nextY = y + stepY;
+      if (!collides(nextX + world.size / 2, nextY + 27)) { x = nextX; y = nextY; continue; }
+
+      let bestMove = null, bestProgress = 0;
+      const considerMove = (candidateX, candidateY) => {
+        if (candidateX * candidateX + candidateY * candidateY < .0001
+          || collides(x + candidateX + world.size / 2, y + candidateY + 27)) return;
+        const progress = candidateX * stepX + candidateY * stepY;
+        if (progress > bestProgress) { bestProgress = progress; bestMove = { x: candidateX, y: candidateY }; }
+      };
+      considerMove(stepX, 0);
+      considerMove(0, stepY);
+      const normals = obstacleCollisionNormalsAt(nextX + world.size / 2, nextY + 27, stepX, stepY);
+      for (const normal of normals) {
+        const intoObstacle = stepX * normal.x + stepY * normal.y;
+        if (intoObstacle >= 0) continue;
+        const slideX = stepX - intoObstacle * normal.x, slideY = stepY - intoObstacle * normal.y;
+        for (const scale of [1, .75, .5, .25]) considerMove(slideX * scale, slideY * scale);
+      }
+      if (bestMove) { x += bestMove.x; y += bestMove.y; }
+    }
+    return { x, y };
+  }
   function populateChickens() {
     const spots = [];
     const addCandidate = (tileX, tileY) => {
@@ -2446,9 +2492,9 @@
     else if (dy) player.face = dy > 0 ? 'down' : 'up';
     const speed = panicking ? 240 : dashing ? 365 : player.dolphinRideTimer > 0 ? 330 : player.slideTimer > 0 ? 175 : player.inWater ? 90 : 115;
     const amount = speed * dt;
-    const nextX = player.x + tx * amount, nextY = player.y + ty * amount;
-    if (!collides(nextX + world.size / 2, player.y + 27)) player.x = clamp(nextX, 15, world.width * world.size - 15);
-    if (!collides(player.x + world.size / 2, nextY + 27)) player.y = clamp(nextY, 15, world.height * world.size - 15);
+    const nextPosition = moveWithObstacleSliding(player.x, player.y, tx * amount, ty * amount);
+    player.x = clamp(nextPosition.x, 15, world.width * world.size - 15);
+    player.y = clamp(nextPosition.y, 15, world.height * world.size - 15);
     updatePartyDance();
     frameTime += dt * 1000;
     if (!played) {
