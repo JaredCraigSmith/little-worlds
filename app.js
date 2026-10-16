@@ -854,7 +854,7 @@
     homeX: (sharkPatrol.minX + sharkPatrol.maxX) / 2, homeY: sharkPatrol.y,
     direction: 1, facing: 1, chasing: false, chaseTimer: 0
   };
-  const sharkFearRadius = 195;
+  const sharkFearRadius = 80;
   const soccerBall = {
     x: (soccerField.left + soccerField.right + 1) * world.size / 2,
     y: (soccerField.top + soccerField.bottom + 1) * world.size / 2,
