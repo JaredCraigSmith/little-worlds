@@ -252,11 +252,13 @@
     const build = (root, printable) => {
       root.replaceChildren();
       SHEET_ROWS.forEach((dir, row) => {
-        const label = document.createElement('div');
-        label.className = printable ? 'print-row-label' : 'paper-row-label';
-        if (dir === 'dash') label.classList.add('dash-row-label');
-        label.innerHTML = `${ARROWS[row]} <small>${LABELS[row]}</small>`;
-        root.append(label);
+        if (!printable) {
+          const label = document.createElement('div');
+          label.className = 'paper-row-label';
+          if (dir === 'dash') label.classList.add('dash-row-label');
+          label.innerHTML = `${ARROWS[row]} <small>${LABELS[row]}</small>`;
+          root.append(label);
+        }
         for (let col = 0; col < FRAME_COLUMNS; col++) {
           const cell = document.createElement('div');
           cell.className = printable ? 'print-cell' : 'paper-cell';
@@ -274,6 +276,7 @@
   $('#printButton').addEventListener('click', openPrint);
   $('#smallPrintButton').addEventListener('click', openPrint);
   $('#studioPrintButton').addEventListener('click', () => { openPrint(); showStepTwo(); });
+  $('#uploadExistingSheetButton').addEventListener('click', () => $('#sheetInput').click());
 
   function clearMovementInput() {
     pressed.clear();
@@ -353,7 +356,11 @@
   });
 
   const fileInput = $('#sheetInput');
-  fileInput.addEventListener('change', () => { const file = fileInput.files?.[0]; if (file) loadPhoto(file); });
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    fileInput.value = '';
+    if (file) loadPhoto(file);
+  });
   const uploadDrop = $('#uploadDrop');
   uploadDrop.addEventListener('dragover', event => { event.preventDefault(); uploadDrop.classList.add('dragover'); });
   uploadDrop.addEventListener('dragleave', () => uploadDrop.classList.remove('dragover'));
@@ -382,7 +389,7 @@
         $('#paperBadge').innerHTML = '<i></i> PHOTO CROP';
         $('#workspaceTitle').textContent = 'Adjust your drawing';
         $('#workspaceSubtitle').textContent = 'Fit the crop to the boxes and choose the paper color';
-        $('#workspaceNote').innerHTML = '<span>✦</span> Drag any corner freely. Match the guide lines to the box edges; leave the printed borders and labels outside.';
+        $('#workspaceNote').innerHTML = '<span>✦</span> Drag any corner freely. Match the guide lines to the outer edge of the 4 × 4 boxes.';
         initCrop(); showStepTwo(); drawCropPhoto();
       };
       image.onerror = () => window.alert('That picture could not be opened. Try a JPG or PNG image.');
@@ -393,9 +400,9 @@
 
   function initCrop() {
     const w = photoImage.naturalWidth, h = photoImage.naturalHeight;
-    // Four columns and four rows of slightly landscape boxes make a 1.18:1 grid.
-    // Start with a centered crop that fits the photo, leaving room for page edges and camera tilt.
-    const gridAspect = 1.18;
+    // The blank printable sheet uses square boxes in a 4 × 4 grid.
+    // Start with a centered square crop, leaving room for page edges and camera tilt.
+    const gridAspect = 1;
     const width = Math.min(w * .95, h * gridAspect * .95);
     const height = width / gridAspect;
     crop = { x: (w - width) / 2, y: (h - height) / 2, w: width, h: height };

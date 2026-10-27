@@ -130,3 +130,18 @@
   .game-viewport .game-hint .hint-key,.game-viewport .game-hint .hint-copy,.game-viewport .game-hint .hint-divider{display:none}
   .game-viewport .game-hint .hint-touch{display:block;font-size:10px}
 }
+
+.upload-existing-button{display:flex;align-items:center;gap:9px;width:100%;margin-top:10px;padding:9px 10px;border:1px solid #dce8dc;border-radius:9px;background:#f8fbf6;color:#52745a;text-align:left;transition:background .2s,border-color .2s}
+.upload-existing-button:hover{border-color:#a8c4a8;background:#f0f7ed}
+.upload-existing-icon{display:grid;place-items:center;width:27px;height:27px;flex:none;border-radius:8px;background:#e7f0e4;color:#5c8764;font-size:17px;font-weight:700}
+.upload-existing-button strong,.upload-existing-button small{display:block}
+.upload-existing-button strong{font:800 10px Nunito,sans-serif}
+.upload-existing-button small{margin-top:2px;color:#89978c;font-size:8px}
+
+@media print{
+  #printSheet{display:flex!important;width:100%;height:9.95in;padding:0;align-items:center;justify-content:center}
+  #printSheet>:not(.print-grid){display:none!important}
+  #printSheet .print-grid{display:grid;width:7.5in;height:7.5in;flex:none;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));border-top:1px solid #26352f;border-left:1px solid #26352f}
+  #printSheet .print-cell{border:0;border-right:1px solid #26352f;border-bottom:1px solid #26352f;background:#fff}
+  #printSheet .print-cell:before,#printSheet .print-cell:after{content:none!important;display:none!important}
+}
