@@ -95,6 +95,9 @@
   let nearbyIdolId = '';
   let spriteFrames = null;
   let baseFrames = null;
+  let hasUploadedSheet = false;
+  let uploadedSheetReady = false;
+  let testPlayerMode = new URLSearchParams(window.location.search).get('testPlayer') === '1';
   let manualEraseMasks = Array.from({ length: 16 }, () => new Set());
   let photoImage = null;
   let crop = null;
@@ -155,6 +158,7 @@
       : { frame, flipped: false };
   }
   function saveSettings() {
+    if (testPlayerMode) return;
     const existing = safeLoad();
     safeSave({ ...existing, name: $('#heroName').value.trim().slice(0, 18) || 'Pip' });
   }
@@ -199,18 +203,28 @@
     return c;
   }
 
+  function sampleFrameData() {
+    const frames = [];
+    for (const dir of DRAW_ROWS) for (let pose = 0; pose < FRAME_COLUMNS; pose++) frames.push(makeDefaultSprite(dir, pose).toDataURL());
+    for (let pose = 0; pose < DASH_FRAME_COUNT; pose++) frames.push(makeDefaultSprite('right', pose).toDataURL());
+    return frames;
+  }
+
+  function isBuiltInSample(frames) {
+    const sampleFrames = sampleFrameData();
+    return frames.every((frame, index) => frame === sampleFrames[index]);
+  }
+
   function installSampleSprite() {
     manualEraseMasks = emptyEraseMasks();
-    baseFrames = [];
-    for (const dir of DRAW_ROWS) for (let pose = 0; pose < 4; pose++) baseFrames.push(makeDefaultSprite(dir, pose).toDataURL());
-    for (let pose = 0; pose < DASH_FRAME_COUNT; pose++) baseFrames.push(makeDefaultSprite('right', pose).toDataURL());
+    baseFrames = sampleFrameData();
     buildProcessedFrames();
   }
 
   function saveSprite() {
-    if (!baseFrames?.length) return;
+    if (!baseFrames?.length || testPlayerMode) return;
     const existing = safeLoad();
-    safeSave({ ...existing, name: $('#heroName').value.trim().slice(0, 18) || 'Pip', baseFrames, dashFrameCount: DASH_FRAME_COUNT, manualEraseMasks: manualEraseMasks.map(mask => [...mask]), paperRemoval: $('#paperRemoval').checked, backgroundColor: sampledBackground, backgroundTolerance, edgeBuffer });
+    safeSave({ ...existing, name: $('#heroName').value.trim().slice(0, 18) || 'Pip', baseFrames, dashFrameCount: DASH_FRAME_COUNT, sheetUploaded: hasUploadedSheet, manualEraseMasks: manualEraseMasks.map(mask => [...mask]), paperRemoval: $('#paperRemoval').checked, backgroundColor: sampledBackground, backgroundTolerance, edgeBuffer });
   }
 
   function restoreSprite() {
@@ -218,8 +232,14 @@
     defeatedBosses.clear();
     if (Array.isArray(data.defeatedBosses)) data.defeatedBosses.filter(id => idolData.some(idol => idol.biome === id)).forEach(id => defeatedBosses.add(id));
     finalBossDefeated = data.finalBossDefeated === true;
-    if (data.name) $('#heroName').value = data.name;
-    if (Array.isArray(data.baseFrames) && [DASH_FRAME_OFFSET, SHEET_FRAME_COUNT].includes(data.baseFrames.length)) {
+    const hasSavedFrames = Array.isArray(data.baseFrames)
+      && [DASH_FRAME_OFFSET, SHEET_FRAME_COUNT].includes(data.baseFrames.length)
+      && data.baseFrames.every(frame => typeof frame === 'string' && frame.startsWith('data:image/'));
+    hasUploadedSheet = !testPlayerMode && (data.sheetUploaded === true || (hasSavedFrames && !isBuiltInSample(data.baseFrames)));
+    if (testPlayerMode) $('#heroName').value = 'Pip';
+    else if (data.name) $('#heroName').value = data.name;
+    if (testPlayerMode) installSampleSprite();
+    else if (hasSavedFrames) {
       // Older saves may have a hand-drawn left row; left is still supplied by mirroring.
       const hasDashFrames = data.baseFrames.length === SHEET_FRAME_COUNT && data.dashFrameCount === DASH_FRAME_COUNT;
       baseFrames = hasDashFrames
@@ -236,6 +256,7 @@
     updatePortrait();
     updateIdolProgress();
     $('#victoryBanner').hidden = !finalBossDefeated;
+    updatePlayAccessUI();
   }
 
   function updatePortrait() {
@@ -302,6 +323,19 @@
   }
 
   function showView(view) {
+    const accessMessage = $('#uploadGateMessage');
+    const canPlay = testPlayerMode || (hasUploadedSheet && uploadedSheetReady);
+    if (view === 'play' && !canPlay) {
+      accessMessage.hidden = false;
+      if (hasUploadedSheet) {
+        accessMessage.querySelector('strong').textContent = 'Your hero is getting ready.';
+        accessMessage.querySelector('small').textContent = 'Your drawing is being turned into a sprite. You can play in a moment.';
+      } else {
+        accessMessage.querySelector('strong').textContent = 'Upload your sheet to unlock play.';
+        accessMessage.querySelector('small').textContent = 'Choose a photo you already have, or print the blank grid and draw one.';
+      }
+      view = 'studio';
+    } else accessMessage.hidden = true;
     for (const name of ['home', 'play', 'studio']) {
       const section = $(`#${name}View`);
       const active = name === view;
@@ -315,6 +349,10 @@
       resizeGame();
       window.setTimeout(resizeGame, 40);
     }
+  }
+  function updatePlayAccessUI() {
+    const canPlay = testPlayerMode || (hasUploadedSheet && uploadedSheetReady);
+    $('#studioBackToWorld').hidden = !canPlay;
   }
   $$('[data-view]').forEach(button => button.addEventListener('click', () => showView(button.dataset.view)));
   $('.brand').addEventListener('click', event => { event.preventDefault(); showView('home'); });
@@ -563,6 +601,16 @@
       fctx.drawImage(photoImage, crop.x + col * cellW, crop.y + row * cellH, cellW, cellH, 0, 0, 64, 64);
       baseFrames.push(frame.toDataURL('image/png'));
     }
+    hasUploadedSheet = true;
+    uploadedSheetReady = false;
+    testPlayerMode = false;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('testPlayer');
+    try { window.history.replaceState({}, '', url); }
+    catch { /* File-based previews may not allow updating the page URL. */ }
+    $('#uploadGateMessage').hidden = true;
+    $('#playWithSpriteButton').disabled = true;
+    updatePlayAccessUI();
     $('#previewStatus').textContent = 'Building 16 drawn frames and mirroring left…';
     $('#recalculatePreviewButton').disabled = true;
     buildProcessedFrames();
@@ -602,6 +650,12 @@
       if (!$('#importedWorkspace').hidden) {
         $('#previewStatus').textContent = 'Preview is up to date';
         $('#recalculatePreviewButton').disabled = true;
+        $('#playWithSpriteButton').disabled = false;
+      }
+      if (hasUploadedSheet) {
+        uploadedSheetReady = true;
+        $('#uploadGateMessage').hidden = true;
+        updatePlayAccessUI();
       }
     };
     const ready = (index, image) => {
@@ -807,22 +861,6 @@
   $('#previousFrame').addEventListener('click', () => showFrameDetails((currentDetailFrame + TOTAL_SPRITE_FRAME_COUNT - 1) % TOTAL_SPRITE_FRAME_COUNT));
   $('#nextFrame').addEventListener('click', () => showFrameDetails((currentDetailFrame + 1) % TOTAL_SPRITE_FRAME_COUNT));
   $('#frameDialog').addEventListener('click', event => { if (event.target === $('#frameDialog')) $('#frameDialog').close(); });
-  $('#sampleButton').addEventListener('click', () => {
-    sampledBackground = null;
-    manualEraseMasks = emptyEraseMasks();
-    baseFrames = [];
-    for (const dir of DRAW_ROWS) for (let pose = 0; pose < 4; pose++) baseFrames.push(makeDefaultSprite(dir, pose).toDataURL());
-    for (let pose = 0; pose < DASH_FRAME_COUNT; pose++) baseFrames.push(makeDefaultSprite('right', pose).toDataURL());
-    $('#paperRemoval').checked = true;
-    $('#paperPreview').hidden = true; $('#scanWorkspace').hidden = true; $('#importedWorkspace').hidden = false;
-    $('#clearPhotoButton').hidden = false; $('#clearPhotoButton').textContent = 'Start over'; $('#paperBadge').innerHTML = '<i></i> YOUR HERO';
-    $('#workspaceTitle').textContent = 'A sample hero, ready to go'; $('#workspaceSubtitle').textContent = 'You can swap in your own drawing whenever you like';
-    $('#workspaceNote').innerHTML = '<span>✦</span> This sample lives on your device. Upload your own sheet whenever you are ready.';
-    updateBackgroundControls();
-    $('#previewStatus').textContent = 'Preparing sample frames…';
-    showStepTwo();
-    buildProcessedFrames();
-  });
   $('#playWithSpriteButton').addEventListener('click', () => {
     showView('play');
     showToast('Meet ' + ($('#heroName').value.trim() || 'your hero') + '!');
@@ -1403,7 +1441,9 @@
     if (player.damageCooldown > 0 && Math.floor(time / 95) % 2 === 0) ctx.globalAlpha = .42;
     const dancing = player.partyDancing;
     const bob = dancing ? Math.sin(time * .018) * 2.5 + Math.abs(Math.sin(time * .012)) * 2 : player.moving ? Math.sin(time * .018) * 1.8 : Math.sin(time * .0025) * .7;
-    ctx.fillStyle = 'rgba(46,72,49,.21)'; ctx.beginPath(); ctx.ellipse(sx, sy + 11, 11, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+    if (!player.inWater) {
+      ctx.fillStyle = 'rgba(46,72,49,.21)'; ctx.beginPath(); ctx.ellipse(sx, sy + 11, 11, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+    }
     if (player.inWater) {
       ctx.strokeStyle = 'rgba(247,255,231,.72)'; ctx.lineWidth = 1.4;
       ctx.beginPath(); ctx.ellipse(sx, sy + 7, 14 + Math.sin(time * .004) * 1.5, 5, 0, 0, Math.PI * 2); ctx.stroke();

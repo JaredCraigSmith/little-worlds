@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=blank-grid-upload-1">
+  <link rel="stylesheet" href="styles.css?v=sheet-gate-1">
 </head>
 <body>
   <div class="app-shell">
@@ -36,7 +36,7 @@
           <div class="landing-copy">
             <div class="eyebrow"><span class="eyebrow-dot"></span> A TINY ADVENTURE MADE BY YOU</div>
             <h1 id="homeTitle">Draw a hero.<br><em>Wake the island.</em></h1>
-            <p>Bring your own little character to life, explore five cozy biomes, and help their guardians become friends.</p>
+            <p>Upload a photo of your character sheet in Sprite Studio to unlock the island, then explore five cozy biomes and befriend their guardians.</p>
             <div class="landing-actions">
               <button class="landing-primary" data-view="play" type="button">Start exploring <span>→</span></button>
               <button class="landing-secondary" data-view="studio" type="button">Make a character <span>↗</span></button>
@@ -185,9 +185,13 @@
           <div>
             <div class="eyebrow"><span class="eyebrow-dot coral"></span> THE SPRITE STUDIO</div>
             <h1 id="studioTitle">Your doodle is the <em>main character.</em></h1>
-            <p>Draw a different pose in each box. We’ll turn your paper sheet into a moving sprite.</p>
+            <p>Upload a photo of your drawing sheet to unlock the island. Print a fresh grid here if you need one.</p>
           </div>
-          <button class="back-to-world" data-view="play" type="button"><span>←</span> Back to your world</button>
+          <button class="back-to-world" id="studioBackToWorld" data-view="play" type="button" hidden><span>←</span> Back to your world</button>
+        </div>
+
+        <div class="upload-gate-message" id="uploadGateMessage" role="status" hidden>
+          <span aria-hidden="true">✦</span><div><strong>Upload your sheet to unlock play.</strong><small>Choose a photo you already have, or print the blank grid and draw one.</small></div>
         </div>
 
         <div class="studio-layout">
@@ -221,7 +225,6 @@
                   <span class="upload-cloud">↑</span><strong>Choose a sheet photo</strong><small>JPG or PNG · from your device</small>
                   <span class="upload-choose">Choose a photo</span>
                 </label>
-                <button class="sample-button" id="sampleButton" type="button"><span>✦</span> Try a sample character</button>
                 <div class="tiny-tip"><span>◎</span> Bright light and a flat page make the best photos.</div>
               </div>
             </section>
@@ -291,6 +294,6 @@
   <section id="printSheet" aria-label="Printable blank 4 by 4 drawing grid">
     <div class="print-grid" id="printGrid"></div>
   </section>
-  <script src="app.js?v=blank-grid-upload-1"></script>
+  <script src="app.js?v=sheet-gate-1"></script>
 </body>
 </html>
