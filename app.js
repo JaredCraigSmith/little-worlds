@@ -1445,8 +1445,6 @@
       ctx.fillStyle = 'rgba(46,72,49,.21)'; ctx.beginPath(); ctx.ellipse(sx, sy + 11, 11, 4.5, 0, 0, Math.PI * 2); ctx.fill();
     }
     if (player.inWater) {
-      ctx.strokeStyle = 'rgba(247,255,231,.72)'; ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.ellipse(sx, sy + 7, 14 + Math.sin(time * .004) * 1.5, 5, 0, 0, Math.PI * 2); ctx.stroke();
       if (player.slideTimer > 0) {
         ctx.fillStyle = 'rgba(240,255,244,.88)';
         for (let i = 0; i < 3; i++) {
