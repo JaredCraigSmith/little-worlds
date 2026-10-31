@@ -273,13 +273,11 @@
     const build = (root, printable) => {
       root.replaceChildren();
       SHEET_ROWS.forEach((dir, row) => {
-        if (!printable) {
-          const label = document.createElement('div');
-          label.className = 'paper-row-label';
-          if (dir === 'dash') label.classList.add('dash-row-label');
-          label.innerHTML = `${ARROWS[row]} <small>${LABELS[row]}</small>`;
-          root.append(label);
-        }
+        const label = document.createElement('div');
+        label.className = printable ? 'print-row-label' : 'paper-row-label';
+        if (dir === 'dash') label.classList.add('dash-row-label');
+        label.innerHTML = `${ARROWS[row]} <small>${LABELS[row]}</small>`;
+        root.append(label);
         for (let col = 0; col < FRAME_COLUMNS; col++) {
           const cell = document.createElement('div');
           cell.className = printable ? 'print-cell' : 'paper-cell';
